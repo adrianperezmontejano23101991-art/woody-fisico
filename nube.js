@@ -49,6 +49,13 @@
    if(m[2]==='/tomos'){const f=op.d.leido?hoy():'';o.tomos.forEach(t=>{if(!op.d.ids||op.d.ids.includes(t.id))t.leido=f});return o}
    if(m[2]==='/portada'){o.portada_movil=op.d.url;return o}
    if(m[2]==='/borrar'){cat.obras=cat.obras.filter(x=>x!==o);return{ok:true}}}
+  if(op.ruta==='/api/tengo'){const d=op.d;if(d.accion==='quiero')return {ok:true,buscado:d.titulo};
+   const nn=x=>String(x||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+   let o=d.obra_id&&cat.obras.find(x=>x.id===d.obra_id)||cat.obras.find(x=>[x.titulo,...(x.alias||[]),...(x.tomos||[]).map(t=>t.serie)].some(y=>y&&nn(y)===nn(d.titulo)));
+   if(!o){o={id:'nueva-'+(d.isbn||Date.now()),titulo:d.titulo||d.isbn,alias:[],autores:d.autores||[],estante:'Pendiente de leer',valoracion:'',anime:'',comentario:'',fecha_valoracion:'',tomos:[],revisar:[],lm_id:null,portada_tomo:null,portada_url:'',origen:['Escáner']};cat.obras.push(o)}
+   let t=o.tomos.find(x=>d.isbn&&x.isbn===d.isbn)||o.tomos.find(x=>d.num&&String(x.num)===String(d.num)&&(!x.isbn||x.isbn===d.isbn));
+   if(!t){t={id:'isbn-'+(d.isbn||Date.now()),code:'',serie:o.titulo,edicion:'',num:d.num||'',titulo:'',editorial:d.editorial||'',idioma:'Español',publicado:'',leido:'',url:'',img:'',img_url:d.portada||'',tengo:true,portada:d.portada?'esc-'+(d.isbn||'x'):''};o.tomos.push(t)}
+   t.tengo=true;if(d.isbn)t.isbn=d.isbn;if(d.accion==='leido'&&!t.leido)t.leido=hoy();return o}
   if(op.ruta==='/api/nueva'){const d=op.d;let base=(d.titulo||'obra').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'obra',id=base,i=1;while(cat.obras.some(x=>x.id===id))id=base+'-'+(++i);
    const o={id,titulo:d.titulo,alias:[],autores:d.autores||[],estante:d.estante||'General',valoracion:d.valoracion||'',anime:'',comentario:d.comentario||'',fecha_valoracion:d.valoracion?hoy():'',tomos:[],revisar:[],lm_id:null,portada_tomo:null,portada_url:'',origen:['Manual'],leido_manual:true,manual:true};cat.obras.push(o);return o}
   return null;
@@ -63,7 +70,7 @@
 
  // ---------- portadas: las del PC no están aquí; se piden a Whakoom o a su web de origen
  let mapa={};
- function rehaceMapa(c){mapa={};for(const o of c.obras){for(const t of o.tomos||[]){const u=t.img_url||(t.img?'https://i1.whakoom.com/small/'+t.img:'');if(t.portada&&u)mapa[t.portada]=u}if(o.portada_externa&&o.portada_url)mapa[o.portada_externa.split('?')[0]]=o.portada_url}}
+ function rehaceMapa(c){mapa={};for(const o of c.obras){for(const t of o.tomos||[]){const u=t.img_url||(t.img?'https://i1.whakoom.com/small/'+t.img:'');if(!t.portada&&u&&t.img_url)t.portada='url-'+t.id;if(t.portada&&u)mapa[t.portada]=u}if(o.portada_externa&&o.portada_url)mapa[o.portada_externa.split('?')[0]]=o.portada_url}}
  const remoto=v=>{if(!v||!v.startsWith('/portadas/'))return v;const n=decodeURIComponent(v.slice(10).split('?')[0]);return mapa[n]||'icono-192.png'};
  function arreglaImgs(raiz){(raiz.querySelectorAll?raiz:document).querySelectorAll('img[src^="/portadas/"],[data-zoom^="/portadas/"]').forEach(e=>{if(e.getAttribute('src')?.startsWith('/portadas/'))e.setAttribute('src',remoto(e.getAttribute('src')));if(e.dataset.zoom?.startsWith('/portadas/'))e.dataset.zoom=remoto(e.dataset.zoom)})}
  new MutationObserver(ms=>{for(const m of ms){if(m.type==='attributes')arreglaImgs(m.target.parentNode||document);else m.addedNodes.forEach(n=>n.nodeType===1&&(n.matches?.('img[src^="/portadas/"]')?arreglaImgs(n.parentNode):arreglaImgs(n)))}}).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src','data-zoom']});
@@ -115,7 +122,7 @@
  }
  window.addEventListener('online',subir);
  setInterval(async()=>{if(!token||document.hidden)return;try{const viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;datos.novedades=null;if(JSON.stringify(datos.catalogo.nube)!==viejo&&typeof cargar==='function'){await cargar(true)}aviso()}catch(e){}},120000);
- const VERSION='14 nov 2026 · 14:10';
+ const VERSION='14 nov 2026 · 15:00';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const ip=document.getElementById('infoPanel');if(ip){const v=document.createElement('p');v.className='fine';v.id='versionApp';v.textContent='Versión de la app: '+VERSION;ip.append(v)}
   const st=document.createElement('style');st.textContent=`#nubeEstado{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;background:#1d231dee;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);pointer-events:none}@media(min-width:651px){#nubeEstado{bottom:14px}}#infoPanel:not([hidden])~#nubeEstado{display:none}.nube-err{color:#f0a0a0}#nubeClave{width:100%;font-family:monospace}#bajar,.fine .dot{display:none}`;document.head.append(st)});

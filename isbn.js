@@ -102,30 +102,62 @@
  async function resolver(k){
   hoja(`<div class="esc-cargando">Buscando ${k}…</div>`);
   const ix=await indice();
-  if(ix.tomos.has(k)){const {o,t}=ix.tomos.get(k);return irObra(o,t)}
-  if(ix.busc.has(k)){const {b,t}=ix.busc.get(k);return irBus(b,t)}
+  if(ix.tomos.has(k)){const {o,t}=ix.tomos.get(k);if(t.tengo)return irObra(o,t);return acciones({tipo:'obra',o},{isbn:k,num:t.num,titles:[o.titulo],authors:o.autores||[]},null)}
+  if(ix.busc.has(k)){const {b,t}=ix.busc.get(k);return acciones({tipo:'bus',b},{isbn:k,num:t.num,titles:[b.t],authors:b.a||[],cover:b.img},null)}
   hoja(`<div class="esc-cargando">Buscando ${k} en Google Books, Open Library y Todos tus libros…</div>`);
   const pExt=porIsbn(k);
-  const info=await lookup(k);
+  const info=await lookup(k);info.isbn=k;
   const claro=c=>c.length===1||(c.length>1&&c[0].s>=0.9&&c[0].s-c[1].s>=0.3);
   let c=info.titles.length?candidatos(info,ix.lista):[];
-  if(claro(c)){const x=c[0];return x.tipo==='obra'?irObra(x.o,null,numTomo(info.titles[0])):irBus(x.b,null)}
-  let elegido=false;
-  const pinta=(ext,cargando)=>{
-   const n=numTomo(info.titles[0]),tit=info.titles[0]||'';
-   const cab=info.titles.length?`<div class="esc-libro">${info.cover?`<img src="${es(info.cover)}" alt="">`:''}<div><b>${es(tit)}</b><small>${es([info.authors.join(', '),info.publisher,info.year].filter(Boolean).join(' · '))}</small><small>ISBN ${k}</small></div></div>`:`<div class="esc-libro"><div><b>ISBN ${k}</b><small>${cargando?'Aún no sé qué libro es.':'No sale en Google Books, Open Library ni Todos tus libros.'}</small></div></div>`;
-   const h=hoja(cab+(cargando?`<div class="esc-cargando">${cargando}</div>`:'')+(c.length?`<p class="esc-tit">¿Es alguna de estas?</p><div class="esc-ops">${c.map((x,j)=>{const img=x.tipo==='obra'?portada(x.o):x.b.img;const t=x.tipo==='obra'?x.o.titulo:x.b.t,au=x.tipo==='obra'?(x.o.autores||[]).join(', '):(x.b.a||[]).join(', ');const eti=x.tipo==='obra'?(x.o.tiene?'Lo tienes':'En tu lista'):'Buscado';return `<button type="button" class="esc-op" data-j="${j}">${img?`<img src="${es(img)}" alt="">`:'<span class="esc-sin"></span>'}<span><b>${es(t)}</b><small>${es(au)}</small><em class="${x.tipo==='obra'&&x.o.tiene?'si':''}">${eti}</em></span></button>`}).join('')}</div>`:(cargando?'':`<p class="esc-tit">No lo tienes ni está en tus buscados.</p>`))
+  let ext=null,elegido=false;
+  const cabecera=cargando=>{const tit=info.titles[0]||'';return info.titles.length?`<div class="esc-libro">${info.cover?`<img src="${es(info.cover)}" alt="">`:''}<div><b>${es(tit)}</b><small>${es([info.authors.join(', '),info.publisher,info.year].filter(Boolean).join(' · '))}</small><small>ISBN ${k}</small></div></div>`:`<div class="esc-libro"><div><b>ISBN ${k}</b><small>${cargando?'Aún no sé qué libro es.':'No sale en Google Books, Open Library ni Todos tus libros.'}</small></div></div>`};
+  const pinta=cargando=>{
+   const tit=info.titles[0]||'';
+   const h=hoja(cabecera(cargando)+(cargando?`<div class="esc-cargando">${cargando}</div>`:'')
+    +`<p class="esc-tit">${c.length?'¿De cuál es?':'No lo tienes ni está en tus buscados'}</p><div class="esc-ops">${c.map((x,j)=>{const img=x.tipo==='obra'?portada(x.o):x.b.img;const t=x.tipo==='obra'?x.o.titulo:x.b.t,au=x.tipo==='obra'?(x.o.autores||[]).join(', '):(x.b.a||[]).join(', ');const eti=x.tipo==='obra'?(x.o.tiene?'Lo tienes':'En tu lista'):'Buscado';return `<button type="button" class="esc-op" data-j="${j}">${img?`<img src="${es(img)}" alt="">`:'<span class="esc-sin"></span>'}<span><b>${es(t)}</b><small>${es(au)}</small><em class="${x.tipo==='obra'&&x.o.tiene?'si':''}">${eti}</em></span></button>`}).join('')}
+     ${tit?`<button type="button" class="esc-op esc-nueva" data-nueva>${info.cover?`<img src="${es(info.cover)}" alt="">`:'<span class="esc-sin">＋</span>'}<span><b>${c.length?'Ninguna: es otra obra':'Añadirlo'}</b><small>${es(tit)}</small></span></button>`:''}</div>`
     +(ext?.listado?.length?`<p class="esc-tit">En Listado Manga</p><div class="esc-fuera">${ext.listado.map(l=>`<a href="${es(l.url)}" target="_blank" rel="noopener">${es(l.nombre)}</a>`).join('')}</div>`:'')
     +`<p class="esc-tit">Buscarlo en</p>${externos(k,tit,ext?.url)}<button type="button" class="esc-otro" data-otro>Escanear otro</button>`);
-   h.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>{elegido=true;const x=c[+b.dataset.j];x.tipo==='obra'?irObra(x.o,null,n):irBus(x.b,null)});
+   h.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>{elegido=true;acciones(c[+b.dataset.j],info,ext)});
+   h.querySelector('[data-nueva]')?.addEventListener('click',()=>{elegido=true;acciones({tipo:'nueva'},info,ext)});
    h.querySelector('[data-otro]').addEventListener('click',()=>{elegido=true});
   };
-  pinta(null,'Buscando también en Todos tus libros…');
-  const ext=await pExt;
+  if(claro(c)){const x=c[0];return acciones(x,info,null)}
+  pinta('Buscando también en Todos tus libros…');
+  ext=await pExt;
   if(elegido||$$('esc').hidden)return;
   if(ext.titulo){info.titles.unshift(ext.titulo);info.titles=[...new Set(info.titles)];if(ext.autores?.length)info.authors=[...new Set([...ext.autores,...info.authors])];info.cover=info.cover||ext.portada||'';c=candidatos(info,ix.lista)}
-  if(claro(c)){const x=c[0];return x.tipo==='obra'?irObra(x.o,null,numTomo(info.titles[0])):irBus(x.b,null)}
-  pinta(ext,'');
+  if(claro(c))return acciones(c[0],info,ext);
+  pinta('');
+ }
+
+ // ---- qué hacer con lo escaneado: «Lo tengo», «Lo tengo y leído», «Lo quiero», «Ver ficha»
+ function acciones(x,info,ext){
+  const k=info.isbn,libro=info.titles[0]||'';
+  const num=info.num||numTomo(libro);
+  const titulo=x.tipo==='obra'?x.o.titulo:x.tipo==='bus'?x.b.t:libro.replace(/\s*(?:tomo|vol\.?|n[ºo°]\.?|#)?\s*\d{1,3}\s*$/i,'').trim()||libro;
+  const autores=x.tipo==='obra'?(x.o.autores||[]):x.tipo==='bus'?(x.b.a||[]):info.authors;
+  const img=x.tipo==='obra'?portada(x.o):x.tipo==='bus'?x.b.img:info.cover;
+  const ya=x.tipo==='obra'?(x.o.tomos||[]).find(t=>(k&&t.isbn===k)||(num&&String(t.num)===String(num))):null;
+  const estado=x.tipo==='obra'?(ya?.tengo?`Ya lo tienes${ya.num?' (tomo '+ya.num+')':''}`:x.o.tiene?'Tienes otros tomos de esta obra':'En tu lista, sin tomos'):x.tipo==='bus'?'Está en tus buscados':'Obra nueva';
+  const h=hoja(`<div class="esc-libro">${img?`<img src="${es(img)}" alt="">`:''}<div><b>${es(titulo)}</b><small>${es(autores.join(', '))}</small><small>${es(estado)}${k?' · ISBN '+k:''}</small></div></div>
+   <label class="esc-num">Tomo nº <input id="escNum" inputmode="numeric" value="${es(num)}" placeholder="—"></label>
+   <div class="esc-acc"><button type="button" class="esc-si" data-a="tengo">✓ Lo tengo</button><button type="button" class="esc-si" data-a="leido">✓ Lo tengo y leído</button><button type="button" data-a="quiero">♡ Lo quiero</button>${x.tipo!=='nueva'?`<button type="button" data-a="ver">Ver ficha</button>`:''}</div>
+   <p class="esc-nota">Se guarda al momento aquí y se pasa a tu Whakoom la próxima vez que sincronices con Whakoom en el PC.</p>
+   <button type="button" class="esc-otro" data-otro>Escanear otro</button>`);
+  h.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{
+   const a=b.dataset.a;
+   if(a==='ver')return x.tipo==='obra'?irObra(x.o,ya,num):x.tipo==='bus'?irBus(x.b,null):null;
+   b.disabled=true;
+   try{
+    const r=await api('/api/tengo',{accion:a,obra_id:x.tipo==='obra'?x.o.id:'',titulo,autores,num:$$('escNum').value.trim(),isbn:k,editorial:info.publisher||'',portada:x.tipo==='obra'?'':(info.cover||(x.tipo==='bus'?x.b.img:'')),url:ext?.url||''});
+    if(a==='quiero'){try{bus=null}catch(e){}cerrar();toast(`«${titulo}» añadido a buscados`);return}
+    if(typeof cargar==='function')await cargar(true);
+    const o=(typeof obras!=='undefined'?obras:[]).find(z=>z.id===r.id)||(typeof obras!=='undefined'?obras:[]).find(z=>z.titulo===titulo);
+    if(o){const t=(o.tomos||[]).find(z=>z.isbn===k);irObra(o,t);toast(a==='leido'?'Añadido como leído':'Añadido a tu colección · pendiente de leer')}
+    else{cerrar();toast('Añadido')}
+   }catch(e){b.disabled=false;toast('No se pudo guardar: '+e.message)}
+  });
  }
 
  const css=document.createElement('style');css.textContent=`
@@ -141,6 +173,9 @@
  .esc-tit{margin:14px 0 8px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
  .esc-ops{display:grid;gap:8px}.esc-op{display:flex;gap:12px;align-items:center;text-align:left;padding:8px;border-radius:10px;background:#232a23}.esc-op img,.esc-sin{width:52px;height:76px;object-fit:cover;border-radius:4px;background:#2d3627;flex:none}.esc-op b{display:block}.esc-op small{display:block}.esc-op em{display:inline-block;margin-top:4px;font-style:normal;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid #5b6b4b;color:var(--muted)}.esc-op em.si{background:#2d3627;color:var(--accent)}
  .esc-fuera{display:flex;flex-wrap:wrap;gap:8px}.esc-fuera a{padding:8px 12px;border:1px solid var(--line);border-radius:20px;text-decoration:none;font-size:13px}
+ .esc-num{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:13px;color:var(--muted)}.esc-num input{width:80px;font-size:16px;padding:8px}
+ .esc-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.esc-acc button{padding:13px 8px;font-size:14px;border-radius:10px}.esc-acc .esc-si{background:#2d3627;color:var(--accent);border-color:#5b6b4b;font-weight:600}
+ .esc-nota{font-size:11px;margin:10px 0 0}.esc-nueva .esc-sin{display:grid;place-items:center;font-size:26px;color:var(--accent)}
  .esc-otro{display:block;width:100%;margin-top:16px;background:var(--accent);color:#1f2816;border:0;font-weight:600}
  .tomo.isbn-marca{outline:3px solid var(--accent);outline-offset:3px;border-radius:6px;transition:outline .3s}
  body.esc-abierto{overflow:hidden}`;document.head.append(css);
