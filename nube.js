@@ -103,7 +103,7 @@
  function aviso(txt){
   let b=document.getElementById('nubeEstado');if(!b){b=document.createElement('div');b.id='nubeEstado';document.body.append(b)}
   const c=datos.catalogo||{};const n=cola.length,p=pendientes.length;
-  b.textContent=txt||(n?`☁ ${n} ${n===1?'cambio':'cambios'} por subir`:p?`☁ ${p} ${p===1?'cambio':'cambios'} esperando al PC`:c.nube?.exportado?`☁ Al día con el PC (${new Date(c.nube.exportado).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})})`:'');
+  b.textContent=txt||(n?`☁ ${n} ${n===1?'cambio':'cambios'} por subir`:p?`☁ ${p} ${p===1?'cambio':'cambios'} esperando al PC`:c.nube?.exportado?`☁ Datos del PC del ${new Date(c.nube.exportado).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'');
   b.hidden=!b.textContent;
  }
  function pideToken(msg,ok){
@@ -115,10 +115,10 @@
  }
  window.addEventListener('online',subir);
  setInterval(async()=>{if(!token||document.hidden)return;try{const viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;datos.novedades=null;if(JSON.stringify(datos.catalogo.nube)!==viejo&&typeof cargar==='function'){await cargar(true)}aviso()}catch(e){}},120000);
- const VERSION='14 nov 2026 · 14:00';
+ const VERSION='14 nov 2026 · 14:05';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const ip=document.getElementById('infoPanel');if(ip){const v=document.createElement('p');v.className='fine';v.id='versionApp';v.textContent='Versión de la app: '+VERSION;ip.append(v)}
-  const st=document.createElement('style');st.textContent=`#nubeEstado{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;background:#1d231dee;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);pointer-events:none}@media(min-width:651px){#nubeEstado{bottom:14px}}.nube-err{color:#f0a0a0}#nubeClave{width:100%;font-family:monospace}#bajar,.fine .dot{display:none}`;document.head.append(st)});
+  const st=document.createElement('style');st.textContent=`#nubeEstado{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;background:#1d231dee;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);pointer-events:none}@media(min-width:651px){#nubeEstado{bottom:14px}}#infoPanel:not([hidden])~#nubeEstado{display:none}.nube-err{color:#f0a0a0}#nubeClave{width:100%;font-family:monospace}#bajar,.fine .dot{display:none}`;document.head.append(st)});
  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
  // ---------- instalar como app
  let instalar=null;
