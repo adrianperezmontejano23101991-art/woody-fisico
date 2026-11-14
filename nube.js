@@ -1,10 +1,11 @@
 /* Woody Físico en la nube: la misma app que en el PC, pero leyendo y guardando en tu repositorio privado de GitHub.
    - Lee catalogo.json, buscados_fichas.json y novedades.json del repositorio de datos.
-   - Lo que cambias aquí se guarda en cambios/*.json; el programa del PC lo aplica y vuelve a subir el catálogo.
+   - Lo que cambias aquí se sube a cambios/*.json; GitHub lo aplica solo en un minuto (no hace falta el PC).
    - Mientras tanto, la app aplica tus cambios por encima para que los veas al momento. Sin conexión, se quedan en cola. */
 (function(){
  const REPO='adrianperezmontejano23101991-art/woody-fisico-datos';
  const API='https://api.github.com/repos/'+REPO+'/contents/';
+ const DIR='programa/data/';
  const LS={get:k=>{try{return localStorage.getItem('wf_'+k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem('wf_'+k,v)}catch(e){}},del:k=>{try{localStorage.removeItem('wf_'+k)}catch(e){}}};
  const fetchReal=window.fetch.bind(window);
  const CAMPOS=['seguir','orden','titulo','autores','estante','valoracion','anime','comentario','portada_tomo','lm_id','notas','revisado','leido_manual'];
@@ -21,7 +22,7 @@
  const gh=async(ruta,op={})=>{const r=await fetchReal(API+ruta,{...op,headers:{'Authorization':'Bearer '+token,'Accept':op.raw?'application/vnd.github.raw+json':'application/vnd.github+json',...(op.body?{'Content-Type':'application/json'}:{})},cache:'no-store'});if(r.status===401||r.status===403&&!op.raw){pideToken('La clave no vale o ha caducado. Pon una nueva.');throw Error('Sin permiso')}if(!r.ok&&r.status!==404)throw Error('GitHub '+r.status);return r};
  async function leer(nombre){
   const cache=LS.get('f_'+nombre);
-  try{const r=await gh(nombre,{raw:true});if(r.status===404)return cache?JSON.parse(cache):null;const t=await r.text();LS.set('f_'+nombre,t);return JSON.parse(t)}
+  try{const r=await gh(DIR+nombre,{raw:true});if(r.status===404)return cache?JSON.parse(cache):null;const t=await r.text();LS.set('f_'+nombre,t);return JSON.parse(t)}
   catch(e){if(cache)return JSON.parse(cache);throw e}
  }
  const b64=s=>{const u=new TextEncoder().encode(s);let x='';for(let i=0;i<u.length;i+=32768)x+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(x)};
@@ -39,7 +40,8 @@
   })();
  }
  let tSubir=null;
- function encola(ruta,d){const op={t:Date.now(),ruta,d};cola.push(op);pendientes.push(op);guardaLocal();aviso();clearTimeout(tSubir);tSubir=setTimeout(subir,1500)}
+ const nid=()=>'m-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+ function encola(ruta,d){const op={id:nid(),t:Date.now(),ruta,d};cola.push(op);if(ruta!=='/api/whakoom/excel')pendientes.push(op);else pendientes.push({id:op.id,t:op.t,ruta:'/api/espera',d:{}});guardaLocal();aviso();clearTimeout(tSubir);tSubir=setTimeout(subir,ruta.startsWith('/api/obra/')?5000:800)}
 
  // ---------- aplicar cambios por encima del catálogo
  function aplica(cat,op){
@@ -62,8 +64,8 @@
  }
  function catalogoActual(){
   const c=JSON.parse(JSON.stringify(datos.catalogo||{obras:[]}));
-  const hasta=(c.nube||{}).cambios_hasta||0;
-  pendientes=pendientes.filter(op=>op.t>hasta);guardaLocal();
+  const hechos=new Set((c.nube||{}).aplicados||[]);
+  pendientes=pendientes.filter(op=>op.id&&!hechos.has(op.id)&&op.t>Date.now()-2*86400000);guardaLocal();
   for(const op of pendientes)aplica(c,op);
   return c;
  }
@@ -93,7 +95,6 @@
    return json({error:'No disponible en el móvil'},404);
   }
   if(ruta.startsWith('/api/novedades/')){if(d.id)ocultas.add(d.id);if(d.todos)ocultas.add('*tuyas');}
-  if(ruta==='/api/whakoom/excel')return json({error:'Importa el Excel desde el PC'},400);
   encola(ruta,d);
   const c=catalogoActual();const r=aplica(c,{ruta,d});rehaceMapa(c);
   return json(r||{ok:true});
@@ -110,7 +111,7 @@
  function aviso(txt){
   let b=document.getElementById('nubeEstado');if(!b){b=document.createElement('div');b.id='nubeEstado';document.body.append(b)}
   const c=datos.catalogo||{};const n=cola.length,p=pendientes.length;
-  b.textContent=txt||(n?`☁ ${n} ${n===1?'cambio':'cambios'} por subir`:p?`☁ ${p} ${p===1?'cambio':'cambios'} esperando al PC`:c.nube?.exportado?`☁ Datos del PC del ${new Date(c.nube.exportado).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'');
+  b.textContent=txt||(n?`☁ ${n} ${n===1?'cambio':'cambios'} por subir`:p?`☁ Guardando ${p} ${p===1?'cambio':'cambios'}…`:c.nube?.exportado?`☁ Guardado · ${new Date(c.nube.exportado).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'');
   b.hidden=!b.textContent;
  }
  function pideToken(msg,ok){
@@ -121,11 +122,24 @@
   if(!d.open)d.showModal();
  }
  window.addEventListener('online',subir);
- setInterval(async()=>{if(!token||document.hidden)return;try{const viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;datos.novedades=null;if(JSON.stringify(datos.catalogo.nube)!==viejo&&typeof cargar==='function'){await cargar(true)}aviso()}catch(e){}},120000);
- const VERSION='14 nov 2026 · 15:00';
+ async function refresca(){if(!token||document.hidden)return;try{const antes=pendientes.length,viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;if(JSON.stringify(datos.catalogo.nube)!==viejo){datos.novedades=null;datos.buscados=null;try{bus=null}catch(e){}if(typeof cargar==='function')await cargar(true);if(antes&&!pendientes.length&&typeof toast==='function')toast('Guardado en la nube')}aviso()}catch(e){}}
+ let cuenta=0;setInterval(()=>{cuenta++;if(pendientes.length||cola.length?cuenta%2===0:cuenta%12===0)refresca()},10000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){subir();refresca()}});
+ const VERSION='14 nov 2026 · 16:30';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
-  const ip=document.getElementById('infoPanel');if(ip){const v=document.createElement('p');v.className='fine';v.id='versionApp';v.textContent='Versión de la app: '+VERSION;ip.append(v)}
-  const st=document.createElement('style');st.textContent=`#nubeEstado{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;background:#1d231dee;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);pointer-events:none}@media(min-width:651px){#nubeEstado{bottom:14px}}#infoPanel:not([hidden])~#nubeEstado{display:none}.nube-err{color:#f0a0a0}#nubeClave{width:100%;font-family:monospace}#bajar,.fine .dot{display:none}`;document.head.append(st)});
+  const ip=document.getElementById('infoPanel');if(ip){
+   const w=document.createElement('div');w.className='wk-bloque';
+   w.innerHTML=`<p><b>Whakoom</b></p><button id="wkAbrir">⇄ Sincronizar con Whakoom</button>
+    <div id="wkAyuda" class="wk-ayuda" hidden><p>Solo la primera vez, en Chrome:</p><ol><li>Pulsa <b>Copiar marcador</b>.</li><li>Guarda cualquier página como marcador (☆), edítalo, llámalo <b>woody</b> y pega lo copiado en la dirección (URL).</li></ol><button id="wkCopiar">Copiar marcador</button>
+    <p>Cada vez que quieras sincronizar: abre Whakoom, escribe <b>woody</b> en la barra de direcciones y toca el marcador.</p><button id="wkIr">Abrir Whakoom ↗</button></div>
+    <button id="wkExcel">⇪ Importar Excel de Whakoom</button><input type="file" id="wkFichero" accept=".xlsx" hidden>`;
+   ip.append(w);
+   w.querySelector('#wkAbrir').onclick=()=>{const a=w.querySelector('#wkAyuda');a.hidden=!a.hidden};
+   w.querySelector('#wkCopiar').onclick=async()=>{const m="javascript:(()=>{fetch('"+location.origin+location.pathname.replace(/[^/]*$/,'')+"wk-sync.js?'+Date.now()).then(r=>r.text()).then(t=>new Function('TOKEN','REPO',t)('"+token+"','"+REPO+"'))})()";try{await navigator.clipboard.writeText(m);toast('Marcador copiado')}catch(e){prompt('Copia esto:',m)}};
+   w.querySelector('#wkIr').onclick=()=>window.open('https://www.whakoom.com/mycollection','_blank');
+   w.querySelector('#wkExcel').onclick=()=>w.querySelector('#wkFichero').click();
+   w.querySelector('#wkFichero').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const u=new Uint8Array(await f.arrayBuffer());let x='';for(let i=0;i<u.length;i+=32768)x+=String.fromCharCode.apply(null,u.subarray(i,i+32768));encola('/api/whakoom/excel',{b64:btoa(x)});toast('Excel enviado: en un minuto verás los cambios')};const v=document.createElement('p');v.className='fine';v.id='versionApp';v.textContent='Versión de la app: '+VERSION;ip.append(v)}
+  const st=document.createElement('style');st.textContent=`#nubeEstado{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;background:#1d231dee;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);pointer-events:none}@media(min-width:651px){#nubeEstado{bottom:14px}}#infoPanel:not([hidden])~#nubeEstado{display:none}.nube-err{color:#f0a0a0}#nubeClave{width:100%;font-family:monospace}.wk-bloque{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}.wk-ayuda{font-size:12px}.wk-ayuda ol{padding-left:18px;margin:6px 0}.wk-bloque button{display:block;width:100%;text-align:left;margin-top:8px;font-size:12px}#bajar,.fine .dot{display:none}`;document.head.append(st)});
  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
  // ---------- instalar como app
  let instalar=null;
