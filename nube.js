@@ -114,4 +114,11 @@
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const st=document.createElement('style');st.textContent=`#nubeEstado{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;background:#1d231dee;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);pointer-events:none}@media(min-width:651px){#nubeEstado{bottom:14px}}.nube-err{color:#f0a0a0}#nubeClave{width:100%;font-family:monospace}#bajar,.fine .dot{display:none}`;document.head.append(st)});
  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+ // ---------- instalar como app
+ let instalar=null;
+ const enApp=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+ function botonInstalar(fn){if(enApp||document.getElementById('instalarBtn'))return;const a=document.getElementById('infoBtn');if(!a)return;const b=document.createElement('button');b.id='instalarBtn';b.className='icon-btn';b.type='button';b.textContent='⤓ Instalar';b.title='Instalar Woody Físico como app';b.onclick=fn;a.before(b)}
+ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instalar=e;botonInstalar(async()=>{instalar.prompt();const r=await instalar.userChoice;if(r.outcome==='accepted')document.getElementById('instalarBtn')?.remove()})});
+ window.addEventListener('appinstalled',()=>document.getElementById('instalarBtn')?.remove());
+ document.addEventListener('DOMContentLoaded',()=>{if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!enApp)botonInstalar(()=>alert('Para instalarla: pulsa el botón Compartir de Safari (el cuadrado con la flecha) y luego «Añadir a pantalla de inicio».'))});
 })();
