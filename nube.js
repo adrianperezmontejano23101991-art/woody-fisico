@@ -158,7 +158,7 @@
  async function refresca(){if(!token||document.hidden)return;try{const antes=pendientes.length,viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;if(JSON.stringify(datos.catalogo.nube)!==viejo){datos.novedades=null;datos.buscados=null;try{bus=null}catch(e){}if(typeof cargar==='function')await cargar(true);if(antes&&!pendientes.length&&typeof toast==='function')toast('Guardado en la nube')}aviso()}catch(e){}}
  let cuenta=0;setInterval(()=>{cuenta++;if(pendientes.length||cola.length?cuenta%2===0:cuenta%12===0)refresca()},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){subir();refresca()}});
- const VERSION='14 nov 2026 · 22:00 (2)';
+ const VERSION='14 nov 2026 · 23:30';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const vista=new URLSearchParams(location.search).get('vista');if(vista)setTimeout(()=>document.querySelector(`.nav[data-view="${vista}"]`)?.click(),1500);
   const ip=document.getElementById('infoPanel');if(ip){

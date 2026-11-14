@@ -108,7 +108,7 @@
   hoja(`<div class="esc-cargando">Buscando ${k}…</div>`);
   const ix=await indice();
   if(ix.tomos.has(k)){const {o,t}=ix.tomos.get(k);if(t.tengo){if(rafaga){hoja(`<div class="esc-cargando">✓ Ya lo tienes: <b>${es(o.titulo)}${t.num?' '+es(t.num):''}</b></div>`);return seguir(1600)}return irObra(o,t)}return acciones({tipo:'obra',o},{isbn:k,num:t.num,titles:[o.titulo],authors:o.autores||[]},null)}
-  if(ix.busc.has(k)){const {b,t}=ix.busc.get(k);return acciones({tipo:'bus',b},{isbn:k,num:t.num,titles:[b.t],authors:b.a||[],cover:b.img},null)}
+  if(ix.busc.has(k)){const {b,t}=ix.busc.get(k);if(!rafaga){window.__escNum=t.num||'';return irBus(b,t)}return acciones({tipo:'bus',b},{isbn:k,num:t.num,titles:[b.t],authors:b.a||[],cover:b.img},null)}
   hoja(`<div class="esc-cargando">Buscando ${k} en Google Books, Open Library y Todos tus libros…</div>`);
   const pExt=porIsbn(k);
   const info=await lookup(k);info.isbn=k;
@@ -148,7 +148,7 @@
   const h=hoja(`<div class="esc-libro">${img?`<img src="${es(img)}" alt="">`:''}<div><b>${es(titulo)}</b><small>${es(autores.join(', '))}</small><small>${es(estado)}${k?' · ISBN '+k:''}</small></div></div>
    <label class="esc-num">Tomo nº <input id="escNum" inputmode="numeric" value="${es(num)}" placeholder="—"></label>
    <div class="esc-tgs"><button type="button" class="esc-tg on" data-t="tengo" aria-pressed="true">Lo tengo</button><button type="button" class="esc-tg" data-t="leido" aria-pressed="false">Leído</button></div>
-   <div class="esc-acc"><button type="button" class="esc-si" data-a="guardar">Guardar</button><button type="button" data-a="quiero">♡ Lo quiero</button>${x.tipo!=='nueva'?`<button type="button" data-a="ver" style="grid-column:1/-1">Ver ficha</button>`:''}</div>
+   <div class="esc-acc"><button type="button" class="esc-si" data-a="guardar">Guardar</button><button type="button" data-a="quiero">♡ Lo quiero</button>${x.tipo!=='nueva'?`<button type="button" data-a="ver" style="grid-column:1/-1">Ver ficha</button>`:`<a class="esc-wk" href="https://www.whakoom.com/search?s=${es(k||titulo)}" target="_blank" rel="noopener" style="grid-column:1/-1;text-align:center;padding:10px;border:1px solid #555;border-radius:8px">Ver su ficha en Whakoom ↗</a>`}</div>
    <p class="esc-nota">Se guarda al momento aquí y se pasa a tu Whakoom cuando sincronices con Whakoom.</p>
    <button type="button" class="esc-otro" data-otro>Escanear otro</button>`);
   const tg={tengo:true,leido:false};
