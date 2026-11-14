@@ -113,6 +113,9 @@ const baseT=t=>ntk(String(t||'').replace(/\s*[-–:]\s*(edici[oó]n|nueva edici|
 window.esMia=function(c){const lmId=+((String(c.url||'').match(/coleccion\.php\?id=(\d+)/)||[])[1]||c.id||0);
  if(lmId&&obras.some(o=>o.tiene&&((o.lm_cols||[]).includes(lmId)||o.lm_id===lmId)))return true;
  const ix=indiceObras(),t=limpiaT(c.titulo),o=ix.get(ntk(t))||ix.get(baseT(c.titulo))||ix.get(baseT(t));return !!(o&&o.tiene)};
+window.esMiaBus=function(b){const ix=indiceObras(),t=limpiaT(b.t),o=ix.get(ntk(t))||ix.get(baseT(b.t));if(!o||!o.tiene)return false;
+ const nb=+((String(b.n||'').match(/\d+/)||[])[0]||0);if(nb&&o._tengo<nb)return false;
+ const ed=ntk(String(b.p||'').split(/\s/)[0]);if(ed&&ed.length>2&&!o._eds.some(e=>ntk(e).includes(ed)))return false;return true};
 window.prioDe=t=>P?.prio?.[ntk(t)]?.p||'';
 document.addEventListener('click',async e=>{const b=e.target.closest?.('[data-busver="prio"]');if(!b||P)return;try{await asegura()}catch{}if(typeof pintaBuscados==='function')pintaBuscados()});
 
