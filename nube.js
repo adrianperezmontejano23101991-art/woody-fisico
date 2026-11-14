@@ -87,7 +87,9 @@
    if(ruta==='/api/novedades'){if(!datos.novedades)datos.novedades=await leer('novedades.json');const n=JSON.parse(JSON.stringify(datos.novedades||{cartas:{tuyas:[]},avisos:[],seguidas:[]}));
     if(n.cartas)for(const k in n.cartas)if(Array.isArray(n.cartas[k]))n.cartas[k]=n.cartas[k].filter(x=>!ocultas.has(x.id)&&!(k==='tuyas'&&ocultas.has('*tuyas')));n.activo=false;return json(n)}
    if(ruta==='/api/estado')return json({activo:false,fase:'',hechas:0,total:0,pendientes:0,fallos:0,whakoom:(datos.catalogo||{}).whakoom||{}});
-   if(ruta.startsWith('/api/relaciones/')||ruta==='/api/autor')return json(SOLO_PC);
+   if(ruta.startsWith('/api/relaciones/')){const id=decodeURIComponent(ruta.slice(16));return json(await relacionesNube(id,/forzar=1/.test(u)))}
+   if(ruta==='/api/autor'){const nombre=new URLSearchParams(u.split('?')[1]||'').get('nombre')||'';const nn=x=>String(x||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').sort().join(' ');
+    const o=(datos.catalogo?.obras||[]).find(x=>(x.autores||[]).includes(nombre));if(!o)return json({autores:[]});const r=await relacionesNube(o.id,/forzar=1/.test(u));return json({autores:(r.autores||[]).filter(a=>nn(a.autor)===nn(nombre))})}
    const mi=ruta.match(/^\/api\/isbn\/(\d{10,13})$/);
    if(mi){const k=mi[1];const r=await gh('resultados/'+k+'.json',{raw:true});if(r.ok)return json(JSON.parse(await r.text()));
     const ya=+LS.get('consulta_'+k)||0;if(Date.now()-ya>180000){LS.set('consulta_'+k,Date.now());await gh('consultas/'+k+'.json',{method:'PUT',body:JSON.stringify({message:'Buscar ISBN '+k,content:b64('{}')})}).catch(()=>{})}
@@ -105,6 +107,30 @@
   if(!token)await new Promise(ok=>pideToken('',ok));
   datos.catalogo=await leer('catalogo.json')||{obras:[]};
   aviso();
+ }
+
+ // ---------- relaciones de autores: las calcula GitHub (la primera vez de cada obra tarda hasta un minuto)
+ async function relacionesNube(id,forzar){
+  const pide=async()=>{await gh('consultas/rel-'+id+'.json',{method:'PUT',body:JSON.stringify({message:'Relaciones '+id,content:b64(JSON.stringify({forzar}))})}).catch(()=>{})};
+  const lee=async()=>{const r=await gh('relaciones/'+encodeURIComponent(id)+'.json',{raw:true});return r.ok?JSON.parse(await r.text()):null};
+  let r=forzar?null:await lee();if(r){LS.set('rel_'+id,JSON.stringify(r));return r}
+  const c=LS.get('rel_'+id);await pide();
+  const t0=Date.now();while(Date.now()-t0<110000){await new Promise(ok=>setTimeout(ok,7000));const x=await lee();if(x&&(!forzar||x.fecha>=hoy()))return x}
+  return c?JSON.parse(c):{autores:[]};
+ }
+
+ // ---------- avisos en el móvil (notificaciones)
+ const VAPID='BPv6TPslkyx4rMAnmDWcWUenNrQnfP_ETOffkRtyL-1la-bVYTdUauf5T0vZ6ocHHmEDNVa-QUtGabBTbEPmg1Y';
+ const b64u=s=>{const p='='.repeat((4-s.length%4)%4);const r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(r,c=>c.charCodeAt(0))};
+ async function activarAvisos(){
+  if(!('Notification' in window)||!('serviceWorker' in navigator))throw Error('Este navegador no permite avisos. En iPhone, instala primero la app en la pantalla de inicio.');
+  if(await Notification.requestPermission()!=='granted')throw Error('No has dado permiso para los avisos');
+  const reg=await navigator.serviceWorker.ready;
+  const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)});
+  const j=sub.toJSON();const h=[...new Uint8Array(await crypto.subtle.digest('SHA-1',new TextEncoder().encode(j.endpoint)))].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16);
+  const ruta='suscripciones/'+h+'.json';let sha;try{const r=await gh(ruta);if(r.ok)sha=(await r.json()).sha}catch(e){}
+  await gh(ruta,{method:'PUT',body:JSON.stringify({message:'Avisos en el móvil',content:b64(JSON.stringify(j)),...(sha?{sha}:{})})});
+  LS.set('avisos','1');
  }
 
  // ---------- aviso de estado y clave
@@ -125,9 +151,12 @@
  async function refresca(){if(!token||document.hidden)return;try{const antes=pendientes.length,viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;if(JSON.stringify(datos.catalogo.nube)!==viejo){datos.novedades=null;datos.buscados=null;try{bus=null}catch(e){}if(typeof cargar==='function')await cargar(true);if(antes&&!pendientes.length&&typeof toast==='function')toast('Guardado en la nube')}aviso()}catch(e){}}
  let cuenta=0;setInterval(()=>{cuenta++;if(pendientes.length||cola.length?cuenta%2===0:cuenta%12===0)refresca()},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){subir();refresca()}});
- const VERSION='14 nov 2026 · 16:30';
+ const VERSION='14 nov 2026 · 17:30';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
+  const vista=new URLSearchParams(location.search).get('vista');if(vista)setTimeout(()=>document.querySelector(`.nav[data-view="${vista}"]`)?.click(),1500);
   const ip=document.getElementById('infoPanel');if(ip){
+   const av=document.createElement('div');av.className='wk-bloque';av.innerHTML=`<p><b>Avisos</b></p><p class="fine" id="avTxt">${LS.get('avisos')&&window.Notification?.permission==='granted'?'Activados: te aviso de tomos nuevos de lo que sigues y de obras nuevas de tus autores.':'Te aviso en el móvil de tomos nuevos de lo que sigues y de obras nuevas de tus autores.'}</p><button id="avBtn">🔔 ${LS.get('avisos')?'Volver a activar':'Activar'} avisos en este móvil</button>`;ip.append(av);
+   av.querySelector('#avBtn').onclick=async()=>{try{await activarAvisos();av.querySelector('#avTxt').textContent='Activados: te aviso de tomos nuevos de lo que sigues y de obras nuevas de tus autores.';toast('Avisos activados')}catch(e){toast(e.message)}};
    const w=document.createElement('div');w.className='wk-bloque';
    w.innerHTML=`<p><b>Whakoom</b></p><button id="wkAbrir">⇄ Sincronizar con Whakoom</button>
     <div id="wkAyuda" class="wk-ayuda" hidden><p>Solo la primera vez, en Chrome:</p><ol><li>Pulsa <b>Copiar marcador</b>.</li><li>Guarda cualquier página como marcador (☆), edítalo, llámalo <b>woody</b> y pega lo copiado en la dirección (URL).</li></ol><button id="wkCopiar">Copiar marcador</button>

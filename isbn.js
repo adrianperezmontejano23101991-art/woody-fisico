@@ -50,12 +50,14 @@
  function irBus(b,t){cerrar();abrirBus(b);toast('Está en tus buscados'+(t?.num?` · tomo ${t.num}`:''))}
 
  // ---- pantalla del escáner
- let stream=null,zx=null,loop=null,ocupado=false;
+ let stream=null,zx=null,loop=null,ocupado=false,ultimo='',tUltimo=0;
+ let rafaga=(()=>{try{return localStorage.getItem('wf_rafaga')==='1'}catch(e){return false}})();
+ function seguir(ms=0){setTimeout(()=>{if($$('esc').hidden)return;ocupado=false;$$('escHoja').hidden=true;$$('escInput').value='';camara()},ms)}
  function stopCam(){if(loop){cancelAnimationFrame(loop);loop=null}if(zx){try{zx.reset()}catch(e){}zx=null}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
  function cerrar(){stopCam();const e=$$('esc');if(e)e.hidden=true;document.body.classList.remove('esc-abierto')}
  async function camara(){
   const v=$$('escVideo');stopCam();
-  const leido=code=>{const k=a13(code);if(!k||ocupado)return;ocupado=true;navigator.vibrate?.(60);stopCam();resolver(k)};
+  const leido=code=>{const k=a13(code);if(!k||ocupado||(k===ultimo&&Date.now()-tUltimo<5000))return;ultimo=k;tUltimo=Date.now();ocupado=true;navigator.vibrate?.(60);stopCam();resolver(k)};
   try{
    if(!navigator.mediaDevices?.getUserMedia)throw Error('este navegador no deja usar la cámara aquí');
    if('BarcodeDetector' in window&&(await BarcodeDetector.getSupportedFormats()).includes('ean_13')){
@@ -77,9 +79,12 @@
    e.innerHTML=`<video id="escVideo" muted playsinline></video><div class="esc-marco"><i></i></div>
     <button type="button" class="esc-x" id="escX" aria-label="Cerrar">×</button>
     <p id="escAviso" class="esc-aviso">Abriendo la cámara…</p>
+    <button type="button" id="escRafaga" class="esc-raf"></button>
     <form id="escForm" class="esc-form"><input id="escInput" inputmode="numeric" autocomplete="off" placeholder="o escribe el ISBN" aria-label="ISBN"><button>Buscar</button></form>
     <div id="escHoja" class="esc-hoja" hidden></div>`;
    $$('escX').onclick=cerrar;
+   const pintaRaf=()=>{const b=$$('escRafaga');b.textContent=rafaga?'⚡ Ráfaga: sí':'⚡ Ráfaga: no';b.classList.toggle('on',rafaga)};pintaRaf();
+   $$('escRafaga').onclick=()=>{rafaga=!rafaga;try{localStorage.setItem('wf_rafaga',rafaga?'1':'0')}catch(e){}pintaRaf();toast(rafaga?'Ráfaga: tras cada libro sigue escaneando':'Ráfaga desactivada')};
    $$('escForm').onsubmit=ev=>{ev.preventDefault();const k=a13($$('escInput').value);if(!k){toast('Ese ISBN no tiene 10 o 13 cifras');return}stopCam();resolver(k)};
   }
   ocupado=false;$$('escHoja').hidden=true;$$('escInput').value='';e.hidden=false;document.body.classList.add('esc-abierto');camara();
@@ -102,7 +107,7 @@
  async function resolver(k){
   hoja(`<div class="esc-cargando">Buscando ${k}…</div>`);
   const ix=await indice();
-  if(ix.tomos.has(k)){const {o,t}=ix.tomos.get(k);if(t.tengo)return irObra(o,t);return acciones({tipo:'obra',o},{isbn:k,num:t.num,titles:[o.titulo],authors:o.autores||[]},null)}
+  if(ix.tomos.has(k)){const {o,t}=ix.tomos.get(k);if(t.tengo){if(rafaga){hoja(`<div class="esc-cargando">✓ Ya lo tienes: <b>${es(o.titulo)}${t.num?' '+es(t.num):''}</b></div>`);return seguir(1600)}return irObra(o,t)}return acciones({tipo:'obra',o},{isbn:k,num:t.num,titles:[o.titulo],authors:o.autores||[]},null)}
   if(ix.busc.has(k)){const {b,t}=ix.busc.get(k);return acciones({tipo:'bus',b},{isbn:k,num:t.num,titles:[b.t],authors:b.a||[],cover:b.img},null)}
   hoja(`<div class="esc-cargando">Buscando ${k} en Google Books, Open Library y Todos tus libros…</div>`);
   const pExt=porIsbn(k);
@@ -151,8 +156,9 @@
    b.disabled=true;
    try{
     const r=await api('/api/tengo',{accion:a,obra_id:x.tipo==='obra'?x.o.id:'',titulo,autores,num:$$('escNum').value.trim(),isbn:k,editorial:info.publisher||'',portada:x.tipo==='obra'?'':(info.cover||(x.tipo==='bus'?x.b.img:'')),url:ext?.url||''});
-    if(a==='quiero'){try{bus=null}catch(e){}cerrar();toast(`«${titulo}» añadido a buscados`);return}
+    if(a==='quiero'){try{bus=null}catch(e){}toast(`«${titulo}» añadido a buscados`);if(rafaga)return seguir(300);cerrar();return}
     if(typeof cargar==='function')await cargar(true);
+    if(rafaga){toast(`✓ ${titulo}${$$('escNum').value?' '+$$('escNum').value:''}${a==='leido'?' (leído)':''}`);return seguir(300)}
     const o=(typeof obras!=='undefined'?obras:[]).find(z=>z.id===r.id)||(typeof obras!=='undefined'?obras:[]).find(z=>z.titulo===titulo);
     if(o){const t=(o.tomos||[]).find(z=>z.isbn===k);irObra(o,t);toast(a==='leido'?'Añadido como leído':'Añadido a tu colección · pendiente de leer')}
     else{cerrar();toast('Añadido')}
@@ -173,6 +179,7 @@
  .esc-tit{margin:14px 0 8px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
  .esc-ops{display:grid;gap:8px}.esc-op{display:flex;gap:12px;align-items:center;text-align:left;padding:8px;border-radius:10px;background:#232a23}.esc-op img,.esc-sin{width:52px;height:76px;object-fit:cover;border-radius:4px;background:#2d3627;flex:none}.esc-op b{display:block}.esc-op small{display:block}.esc-op em{display:inline-block;margin-top:4px;font-style:normal;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid #5b6b4b;color:var(--muted)}.esc-op em.si{background:#2d3627;color:var(--accent)}
  .esc-fuera{display:flex;flex-wrap:wrap;gap:8px}.esc-fuera a{padding:8px 12px;border:1px solid var(--line);border-radius:20px;text-decoration:none;font-size:13px}
+ .esc-raf{position:absolute;top:calc(64px + env(safe-area-inset-top));left:16px;z-index:2;background:#0007;color:#fff;border:1px solid #fff6;border-radius:20px;padding:6px 12px;font-size:13px}.esc-raf.on{background:var(--accent);color:#1f2816;border-color:var(--accent);font-weight:600}
  .esc-num{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:13px;color:var(--muted)}.esc-num input{width:80px;font-size:16px;padding:8px}
  .esc-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.esc-acc button{padding:13px 8px;font-size:14px;border-radius:10px}.esc-acc .esc-si{background:#2d3627;color:var(--accent);border-color:#5b6b4b;font-weight:600}
  .esc-nota{font-size:11px;margin:10px 0 0}.esc-nueva .esc-sin{display:grid;place-items:center;font-size:26px;color:var(--accent)}
