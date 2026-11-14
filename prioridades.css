@@ -57,3 +57,5 @@ body[data-vista=prioridades] .toolbar,body[data-vista=prioridades] #estados{disp
 .ptomos td{padding:4px 8px;border-bottom:1px solid var(--line)}
 .ptomos .pmio td{color:var(--accent)}.ptomos .pprep td{color:var(--muted);font-style:italic}
 .ptomos .num{text-align:right;white-space:nowrap}
+.p-terror{border-left-color:#c0504d!important}
+.pley{flex-wrap:wrap}
