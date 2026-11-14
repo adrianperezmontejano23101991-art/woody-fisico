@@ -48,3 +48,12 @@ body[data-vista=prioridades] .toolbar,body[data-vista=prioridades] #estados{disp
  .plectura,.pno{grid-template-columns:1fr}
  .pcal td{min-width:110px}
 }
+.pmini i{display:block;font-style:normal;color:var(--muted);font-size:11px}
+.pnotas{display:flex;gap:10px;margin:10px 0}
+.pnota{display:flex;flex-direction:column;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 12px}
+.pnota b{font:22px Georgia;color:var(--accent)}.pnota small{font-size:11px;color:var(--muted)}
+.ptomos{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.ptomos table{width:100%;border-collapse:collapse;font-size:13px}
+.ptomos td{padding:4px 8px;border-bottom:1px solid var(--line)}
+.ptomos .pmio td{color:var(--accent)}.ptomos .pprep td{color:var(--muted);font-style:italic}
+.ptomos .num{text-align:right;white-space:nowrap}
