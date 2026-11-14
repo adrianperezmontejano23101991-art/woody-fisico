@@ -1,5 +1,5 @@
 /* Guarda la app para que abra al momento y sin conexión. Los datos van aparte (GitHub). */
-const V='wf-2';
+const V='wf-3';
 const SHELL=['./','index.html','app.js','nube.js','isbn.js','style.css','fisico.css','movil.css','manifest.webmanifest','icono-192.png','icono-512.png','icono-180.png','woody-library.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))));self.clients.claim()});

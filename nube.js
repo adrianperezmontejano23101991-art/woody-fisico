@@ -79,6 +79,10 @@
     if(n.cartas)for(const k in n.cartas)if(Array.isArray(n.cartas[k]))n.cartas[k]=n.cartas[k].filter(x=>!ocultas.has(x.id)&&!(k==='tuyas'&&ocultas.has('*tuyas')));n.activo=false;return json(n)}
    if(ruta==='/api/estado')return json({activo:false,fase:'',hechas:0,total:0,pendientes:0,fallos:0,whakoom:(datos.catalogo||{}).whakoom||{}});
    if(ruta.startsWith('/api/relaciones/')||ruta==='/api/autor')return json(SOLO_PC);
+   const mi=ruta.match(/^\/api\/isbn\/(\d{10,13})$/);
+   if(mi){const k=mi[1];const r=await gh('resultados/'+k+'.json',{raw:true});if(r.ok)return json(JSON.parse(await r.text()));
+    const ya=+LS.get('consulta_'+k)||0;if(Date.now()-ya>180000){LS.set('consulta_'+k,Date.now());await gh('consultas/'+k+'.json',{method:'PUT',body:JSON.stringify({message:'Buscar ISBN '+k,content:b64('{}')})}).catch(()=>{})}
+    return json({isbn:k,pendiente:true})}
    return json({error:'No disponible en el móvil'},404);
   }
   if(ruta.startsWith('/api/novedades/')){if(d.id)ocultas.add(d.id);if(d.todos)ocultas.add('*tuyas');}

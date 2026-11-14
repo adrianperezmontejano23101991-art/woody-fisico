@@ -9,7 +9,8 @@
   .replace(/[«»"'’`´!¡?¿.,:;()\[\]{}~\-–—_/\\|·•★☆♪]/g,' ')
   .replace(/\b(tomo|vol|volumen|volume|n|no|nº|num|numero|edicion|edition|integral|kanzenban|deluxe|maximum)\b/g,' ')
   .replace(/\b\d+\b/g,' ').replace(/\s+/g,' ').trim();
- const words=s=>new Set(norm(s).split(' ').filter(w=>w.length>1));
+ const VACIAS=new Set('el la los las lo un una unos unas de del al y e o u en con por para a the of an and to in on no vs le les du des et il di da'.split(' '));
+ const words=s=>new Set(norm(s).split(' ').filter(w=>w.length>1&&!VACIAS.has(w)));
  function score(a,b){const A=words(a),B=words(b);if(!A.size||!B.size)return 0;let n=0;A.forEach(w=>{if(B.has(w))n++});return n/Math.max(A.size,B.size)}
  function a13(s){let d=String(s||'').replace(/[^0-9Xx]/g,'').toUpperCase();if(d.length===10){const b='978'+d.slice(0,9);let t=0;for(let i=0;i<12;i++)t+=(+b[i])*(i%2?3:1);d=b+((10-t%10)%10)}return d.length===13?d:''}
  function numTomo(t){const m=String(t||'').match(/(?:tomo|vol\.?|volumen|volume|n[ºo°]\.?|#)\s*(\d{1,3})\b/i)||String(t||'').match(/\b(\d{1,3})\s*$/);return m?String(+m[1]):''}
@@ -86,18 +87,45 @@
  }
  function hoja(html){const h=$$('escHoja');h.innerHTML=html;h.hidden=false;
   h.querySelectorAll('[data-otro]').forEach(b=>b.onclick=()=>{ocupado=false;h.hidden=true;$$('escInput').value='';camara()});return h}
- const externos=k=>`<div class="esc-fuera"><a href="https://www.whakoom.com/search?s=${k}" target="_blank" rel="noopener">Whakoom</a><a href="https://www.todostuslibros.com/busquedas?keyword=${k}" target="_blank" rel="noopener">Todos tus libros</a><a href="https://www.amazon.es/s?k=${k}" target="_blank" rel="noopener">Amazon</a><a href="https://www.google.com/search?q=${k}+site%3Alistadomanga.es" target="_blank" rel="noopener">Listado Manga</a></div>`;
+ const externos=(k,tit,tl)=>{const q=encodeURIComponent((tit||'').replace(/\s*\d+\s*$/,''));return `<div class="esc-fuera"><a href="https://www.whakoom.com/search?s=${tit?q:k}" target="_blank" rel="noopener">Whakoom</a><a href="${es(tl||'https://www.todostuslibros.com/busquedas?keyword='+k)}" target="_blank" rel="noopener">Todos tus libros</a><a href="https://www.amazon.es/s?k=${k}" target="_blank" rel="noopener">Amazon</a>${tit?`<a href="https://www.google.com/search?q=${q}+site%3Alistadomanga.es" target="_blank" rel="noopener">Listado Manga</a>`:''}</div>`};
+ // Todos tus libros y Listado Manga: en el PC, al momento; en el móvil, a través de GitHub (tarda hasta un minuto)
+ async function porIsbn(k){
+  const t0=Date.now();
+  while(Date.now()-t0<100000){
+   let r;try{r=await api('/api/isbn/'+k)}catch(e){return {}}
+   if(!r.pendiente)return r;
+   const c=document.querySelector('#escHoja .esc-cargando');if(c)c.textContent=`Buscando ${k} en Todos tus libros… (${Math.round((Date.now()-t0)/1000)} s, puede tardar un minuto)`;
+   await new Promise(ok=>setTimeout(ok,5000));
+  }
+  return {};
+ }
  async function resolver(k){
   hoja(`<div class="esc-cargando">Buscando ${k}…</div>`);
   const ix=await indice();
   if(ix.tomos.has(k)){const {o,t}=ix.tomos.get(k);return irObra(o,t)}
   if(ix.busc.has(k)){const {b,t}=ix.busc.get(k);return irBus(b,t)}
-  const info=await lookup(k);const n=numTomo(info.titles[0]);
-  const c=info.titles.length?candidatos(info,ix.lista):[];
-  if(c.length===1||(c.length>1&&c[0].s>=0.9&&c[0].s-c[1].s>=0.3)){const x=c[0];return x.tipo==='obra'?irObra(x.o,null,n):irBus(x.b,null)}
-  const cab=info.titles.length?`<div class="esc-libro">${info.cover?`<img src="${es(info.cover)}" alt="">`:''}<div><b>${es(info.titles[0])}</b><small>${es([info.authors.join(', '),info.publisher,info.year].filter(Boolean).join(' · '))}</small><small>ISBN ${k}</small></div></div>`:`<div class="esc-libro"><div><b>ISBN ${k}</b><small>No sale en Google Books ni en Open Library.</small></div></div>`;
-  const h=hoja(cab+(c.length?`<p class="esc-tit">¿Es alguna de estas?</p><div class="esc-ops">${c.map((x,j)=>{const img=x.tipo==='obra'?portada(x.o):x.b.img;const tit=x.tipo==='obra'?x.o.titulo:x.b.t,au=x.tipo==='obra'?(x.o.autores||[]).join(', '):(x.b.a||[]).join(', ');const eti=x.tipo==='obra'?(x.o.tiene?'Lo tienes':'En tu lista'):'Buscado';return `<button class="esc-op" data-j="${j}">${img?`<img src="${es(img)}" alt="">`:'<span class="esc-sin"></span>'}<span><b>${es(tit)}</b><small>${es(au)}</small><em class="${x.tipo==='obra'&&x.o.tiene?'si':''}">${eti}</em></span></button>`}).join('')}</div>`:`<p class="esc-tit">No lo tienes ni está en tus buscados.</p>`)+`<p class="esc-tit">Buscarlo en</p>${externos(k)}<button type="button" class="esc-otro" data-otro>Escanear otro</button>`);
-  h.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>{const x=c[+b.dataset.j];x.tipo==='obra'?irObra(x.o,null,n):irBus(x.b,null)});
+  hoja(`<div class="esc-cargando">Buscando ${k} en Google Books, Open Library y Todos tus libros…</div>`);
+  const pExt=porIsbn(k);
+  const info=await lookup(k);
+  const claro=c=>c.length===1||(c.length>1&&c[0].s>=0.9&&c[0].s-c[1].s>=0.3);
+  let c=info.titles.length?candidatos(info,ix.lista):[];
+  if(claro(c)){const x=c[0];return x.tipo==='obra'?irObra(x.o,null,numTomo(info.titles[0])):irBus(x.b,null)}
+  let elegido=false;
+  const pinta=(ext,cargando)=>{
+   const n=numTomo(info.titles[0]),tit=info.titles[0]||'';
+   const cab=info.titles.length?`<div class="esc-libro">${info.cover?`<img src="${es(info.cover)}" alt="">`:''}<div><b>${es(tit)}</b><small>${es([info.authors.join(', '),info.publisher,info.year].filter(Boolean).join(' · '))}</small><small>ISBN ${k}</small></div></div>`:`<div class="esc-libro"><div><b>ISBN ${k}</b><small>${cargando?'Aún no sé qué libro es.':'No sale en Google Books, Open Library ni Todos tus libros.'}</small></div></div>`;
+   const h=hoja(cab+(cargando?`<div class="esc-cargando">${cargando}</div>`:'')+(c.length?`<p class="esc-tit">¿Es alguna de estas?</p><div class="esc-ops">${c.map((x,j)=>{const img=x.tipo==='obra'?portada(x.o):x.b.img;const t=x.tipo==='obra'?x.o.titulo:x.b.t,au=x.tipo==='obra'?(x.o.autores||[]).join(', '):(x.b.a||[]).join(', ');const eti=x.tipo==='obra'?(x.o.tiene?'Lo tienes':'En tu lista'):'Buscado';return `<button type="button" class="esc-op" data-j="${j}">${img?`<img src="${es(img)}" alt="">`:'<span class="esc-sin"></span>'}<span><b>${es(t)}</b><small>${es(au)}</small><em class="${x.tipo==='obra'&&x.o.tiene?'si':''}">${eti}</em></span></button>`}).join('')}</div>`:(cargando?'':`<p class="esc-tit">No lo tienes ni está en tus buscados.</p>`))
+    +(ext?.listado?.length?`<p class="esc-tit">En Listado Manga</p><div class="esc-fuera">${ext.listado.map(l=>`<a href="${es(l.url)}" target="_blank" rel="noopener">${es(l.nombre)}</a>`).join('')}</div>`:'')
+    +`<p class="esc-tit">Buscarlo en</p>${externos(k,tit,ext?.url)}<button type="button" class="esc-otro" data-otro>Escanear otro</button>`);
+   h.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>{elegido=true;const x=c[+b.dataset.j];x.tipo==='obra'?irObra(x.o,null,n):irBus(x.b,null)});
+   h.querySelector('[data-otro]').addEventListener('click',()=>{elegido=true});
+  };
+  pinta(null,'Buscando también en Todos tus libros…');
+  const ext=await pExt;
+  if(elegido||$$('esc').hidden)return;
+  if(ext.titulo){info.titles.unshift(ext.titulo);info.titles=[...new Set(info.titles)];if(ext.autores?.length)info.authors=[...new Set([...ext.autores,...info.authors])];info.cover=info.cover||ext.portada||'';c=candidatos(info,ix.lista)}
+  if(claro(c)){const x=c[0];return x.tipo==='obra'?irObra(x.o,null,numTomo(info.titles[0])):irBus(x.b,null)}
+  pinta(ext,'');
  }
 
  const css=document.createElement('style');css.textContent=`
