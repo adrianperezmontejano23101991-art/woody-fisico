@@ -44,6 +44,8 @@
  function encola(ruta,d){const op={id:nid(),t:Date.now(),ruta,d};cola.push(op);if(ruta!=='/api/whakoom/excel')pendientes.push(op);else pendientes.push({id:op.id,t:op.t,ruta:'/api/espera',d:{}});guardaLocal();aviso();clearTimeout(tSubir);tSubir=setTimeout(subir,ruta.startsWith('/api/obra/')?5000:800)}
 
  // ---------- aplicar cambios por encima del catálogo
+ const slug=t=>String(t||'obra').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'obra';
+ function slugLibre(cat,t){const b=slug(t);let id=b,i=1;while(cat.obras.some(x=>x.id===id))id=b+'-'+(++i);return id}
  function aplica(cat,op){
   const m=op.ruta.match(/^\/api\/obra\/([^/]+)(\/tomos|\/portada|\/borrar)?$/);
   if(m){const id=decodeURIComponent(m[1]);const o=cat.obras.find(x=>x.id===id);if(!o)return null;
@@ -54,11 +56,11 @@
   if(op.ruta==='/api/tengo'){const d=op.d;if(d.accion==='quiero')return {ok:true,buscado:d.titulo};
    const nn=x=>String(x||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
    let o=d.obra_id&&cat.obras.find(x=>x.id===d.obra_id)||cat.obras.find(x=>[x.titulo,...(x.alias||[]),...(x.tomos||[]).map(t=>t.serie)].some(y=>y&&nn(y)===nn(d.titulo)));
-   if(!o){o={id:'nueva-'+(d.isbn||Date.now()),titulo:d.titulo||d.isbn,alias:[],autores:d.autores||[],estante:'Pendiente de leer',valoracion:'',anime:'',comentario:'',fecha_valoracion:'',tomos:[],revisar:[],lm_id:null,portada_tomo:null,portada_url:'',origen:['Escáner']};cat.obras.push(o)}
+   if(!o){o={id:d.id||slugLibre(cat,d.titulo||d.isbn),titulo:d.titulo||d.isbn,alias:[],autores:d.autores||[],estante:'Pendiente de leer',valoracion:'',anime:'',comentario:'',fecha_valoracion:'',tomos:[],revisar:[],lm_id:null,portada_tomo:null,portada_url:'',origen:['Escáner']};cat.obras.push(o)}
    let t=o.tomos.find(x=>d.isbn&&x.isbn===d.isbn)||o.tomos.find(x=>d.num&&String(x.num)===String(d.num)&&(!x.isbn||x.isbn===d.isbn));
    if(!t){t={id:'isbn-'+(d.isbn||Date.now()),code:'',serie:o.titulo,edicion:'',num:d.num||'',titulo:'',editorial:d.editorial||'',idioma:'Español',publicado:'',leido:'',url:'',img:'',img_url:d.portada||'',tengo:true,portada:d.portada?'esc-'+(d.isbn||'x'):''};o.tomos.push(t)}
-   t.tengo=true;if(d.isbn)t.isbn=d.isbn;if(d.accion==='leido'&&!t.leido)t.leido=hoy();return o}
-  if(op.ruta==='/api/nueva'){const d=op.d;let base=(d.titulo||'obra').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'obra',id=base,i=1;while(cat.obras.some(x=>x.id===id))id=base+'-'+(++i);
+   t.tengo=true;if(d.isbn)t.isbn=d.isbn;if((d.accion==='leido'||d.leido)&&!t.leido)t.leido=hoy();return o}
+  if(op.ruta==='/api/nueva'){const d=op.d;if(d.id&&!cat.obras.some(x=>x.id===d.id)){const o={id:d.id,titulo:d.titulo,alias:[],autores:d.autores||[],estante:d.estante||'General',valoracion:d.valoracion||'',anime:'',comentario:d.comentario||'',fecha_valoracion:d.valoracion?hoy():'',tomos:[],revisar:[],lm_id:null,portada_tomo:null,portada_url:'',origen:['Manual'],leido_manual:true,manual:true};cat.obras.push(o);return o}let base=(d.titulo||'obra').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'obra',id=base,i=1;while(cat.obras.some(x=>x.id===id))id=base+'-'+(++i);
    const o={id,titulo:d.titulo,alias:[],autores:d.autores||[],estante:d.estante||'General',valoracion:d.valoracion||'',anime:'',comentario:d.comentario||'',fecha_valoracion:d.valoracion?hoy():'',tomos:[],revisar:[],lm_id:null,portada_tomo:null,portada_url:'',origen:['Manual'],leido_manual:true,manual:true};cat.obras.push(o);return o}
   return null;
  }
@@ -97,6 +99,7 @@
    return json({error:'No disponible en el móvil'},404);
   }
   if(ruta.startsWith('/api/novedades/')){if(d.id)ocultas.add(d.id);if(d.todos)ocultas.add('*tuyas');}
+  if((ruta==='/api/tengo'&&!d.obra_id&&d.accion!=='quiero')||ruta==='/api/nueva'){const nn=x=>String(x||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const c0=catalogoActual();const ya=ruta==='/api/tengo'&&c0.obras.find(x=>[x.titulo,...(x.alias||[]),...(x.tomos||[]).map(t=>t.serie)].some(y=>y&&nn(y)===nn(d.titulo)));if(ya)d.obra_id=ya.id;else d.id=slugLibre(c0,d.titulo||d.isbn)}
   encola(ruta,d);
   const c=catalogoActual();const r=aplica(c,{ruta,d});rehaceMapa(c);
   return json(r||{ok:true});
@@ -151,7 +154,7 @@
  async function refresca(){if(!token||document.hidden)return;try{const antes=pendientes.length,viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;if(JSON.stringify(datos.catalogo.nube)!==viejo){datos.novedades=null;datos.buscados=null;try{bus=null}catch(e){}if(typeof cargar==='function')await cargar(true);if(antes&&!pendientes.length&&typeof toast==='function')toast('Guardado en la nube')}aviso()}catch(e){}}
  let cuenta=0;setInterval(()=>{cuenta++;if(pendientes.length||cola.length?cuenta%2===0:cuenta%12===0)refresca()},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){subir();refresca()}});
- const VERSION='14 nov 2026 · 17:30';
+ const VERSION='14 nov 2026 · 18:15';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const vista=new URLSearchParams(location.search).get('vista');if(vista)setTimeout(()=>document.querySelector(`.nav[data-view="${vista}"]`)?.click(),1500);
   const ip=document.getElementById('infoPanel');if(ip){

@@ -147,15 +147,24 @@
   const estado=x.tipo==='obra'?(ya?.tengo?`Ya lo tienes${ya.num?' (tomo '+ya.num+')':''}`:x.o.tiene?'Tienes otros tomos de esta obra':'En tu lista, sin tomos'):x.tipo==='bus'?'Está en tus buscados':'Obra nueva';
   const h=hoja(`<div class="esc-libro">${img?`<img src="${es(img)}" alt="">`:''}<div><b>${es(titulo)}</b><small>${es(autores.join(', '))}</small><small>${es(estado)}${k?' · ISBN '+k:''}</small></div></div>
    <label class="esc-num">Tomo nº <input id="escNum" inputmode="numeric" value="${es(num)}" placeholder="—"></label>
-   <div class="esc-acc"><button type="button" class="esc-si" data-a="tengo">✓ Lo tengo</button><button type="button" class="esc-si" data-a="leido">✓ Lo tengo y leído</button><button type="button" data-a="quiero">♡ Lo quiero</button>${x.tipo!=='nueva'?`<button type="button" data-a="ver">Ver ficha</button>`:''}</div>
-   <p class="esc-nota">Se guarda al momento aquí y se pasa a tu Whakoom la próxima vez que sincronices con Whakoom en el PC.</p>
+   <div class="esc-tgs"><button type="button" class="esc-tg on" data-t="tengo" aria-pressed="true">Lo tengo</button><button type="button" class="esc-tg" data-t="leido" aria-pressed="false">Leído</button></div>
+   <div class="esc-acc"><button type="button" class="esc-si" data-a="guardar">Guardar</button><button type="button" data-a="quiero">♡ Lo quiero</button>${x.tipo!=='nueva'?`<button type="button" data-a="ver" style="grid-column:1/-1">Ver ficha</button>`:''}</div>
+   <p class="esc-nota">Se guarda al momento aquí y se pasa a tu Whakoom cuando sincronices con Whakoom.</p>
    <button type="button" class="esc-otro" data-otro>Escanear otro</button>`);
+  const tg={tengo:true,leido:false};
+  const pintaTg=()=>{h.querySelectorAll('[data-t]').forEach(b=>{const on=tg[b.dataset.t];b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});const g=h.querySelector('[data-a="guardar"]');g.disabled=!tg.tengo&&!tg.leido;g.textContent=tg.tengo?(tg.leido?'Guardar: lo tengo y leído':'Guardar: lo tengo, sin leer'):tg.leido?'Guardar: leído sin tenerlo':'Marca algo'};
+  h.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tg[b.dataset.t]=!tg[b.dataset.t];pintaTg()});pintaTg();
   h.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{
-   const a=b.dataset.a;
+   let a=b.dataset.a;
    if(a==='ver')return x.tipo==='obra'?irObra(x.o,ya,num):x.tipo==='bus'?irBus(x.b,null):null;
    b.disabled=true;
    try{
-    const r=await api('/api/tengo',{accion:a,obra_id:x.tipo==='obra'?x.o.id:'',titulo,autores,num:$$('escNum').value.trim(),isbn:k,editorial:info.publisher||'',portada:x.tipo==='obra'?'':(info.cover||(x.tipo==='bus'?x.b.img:'')),url:ext?.url||''});
+    if(a==='guardar'&&!tg.tengo){   // leído sin tenerlo
+     let r;if(x.tipo==='obra')r=await api(`/api/obra/${encodeURIComponent(x.o.id)}`,{leido_manual:true});else r=await api('/api/nueva',{titulo,autores});
+     if(typeof cargar==='function')await cargar(true);toast(`«${titulo}» apuntado como leído`);if(rafaga)return seguir(300);const o=(typeof obras!=='undefined'?obras:[]).find(z=>z.id===(r.id||x.o?.id));if(o)return irObra(o,null);return cerrar();
+    }
+    if(a==='guardar')a=tg.leido?'leido':'tengo';
+    const r=await api('/api/tengo',{accion:a,leido:a==='leido',obra_id:x.tipo==='obra'?x.o.id:'',titulo,autores,num:$$('escNum').value.trim(),isbn:k,editorial:info.publisher||'',portada:x.tipo==='obra'?'':(info.cover||(x.tipo==='bus'?x.b.img:'')),url:ext?.url||''});
     if(a==='quiero'){try{bus=null}catch(e){}toast(`«${titulo}» añadido a buscados`);if(rafaga)return seguir(300);cerrar();return}
     if(typeof cargar==='function')await cargar(true);
     if(rafaga){toast(`✓ ${titulo}${$$('escNum').value?' '+$$('escNum').value:''}${a==='leido'?' (leído)':''}`);return seguir(300)}
@@ -181,6 +190,7 @@
  .esc-fuera{display:flex;flex-wrap:wrap;gap:8px}.esc-fuera a{padding:8px 12px;border:1px solid var(--line);border-radius:20px;text-decoration:none;font-size:13px}
  .esc-raf{position:absolute;top:calc(64px + env(safe-area-inset-top));left:16px;z-index:2;background:#0007;color:#fff;border:1px solid #fff6;border-radius:20px;padding:6px 12px;font-size:13px}.esc-raf.on{background:var(--accent);color:#1f2816;border-color:var(--accent);font-weight:600}
  .esc-num{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:13px;color:var(--muted)}.esc-num input{width:80px;font-size:16px;padding:8px}
+ .esc-tgs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.esc-tg{padding:12px 8px;border-radius:10px;font-size:14px;background:transparent;border:1px solid #5b6b4b;color:var(--muted)}.esc-tg::before{content:'○ '}.esc-tg.on{background:#2d3627;color:var(--accent);border-color:var(--accent);font-weight:600}.esc-tg.on::before{content:'✓ '}
  .esc-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.esc-acc button{padding:13px 8px;font-size:14px;border-radius:10px}.esc-acc .esc-si{background:#2d3627;color:var(--accent);border-color:#5b6b4b;font-weight:600}
  .esc-nota{font-size:11px;margin:10px 0 0}.esc-nueva .esc-sin{display:grid;place-items:center;font-size:26px;color:var(--accent)}
  .esc-otro{display:block;width:100%;margin-top:16px;background:var(--accent);color:#1f2816;border:0;font-weight:600}
