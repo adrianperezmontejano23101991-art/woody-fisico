@@ -53,6 +53,9 @@
    if(m[2]==='/tomos'){const f=op.d.leido?hoy():'';o.tomos.forEach(t=>{if(!op.d.ids||op.d.ids.includes(t.id))t.leido=f});return o}
    if(m[2]==='/portada'){o.portada_movil=op.d.url;return o}
    if(m[2]==='/borrar'){cat.obras=cat.obras.filter(x=>x!==o);return{ok:true}}}
+  if(op.ruta==='/api/prioridad'){const d=op.d,pr=cat.prioridades||(cat.prioridades={}),k=String(d.k||'').slice(0,120);if(!k)return null;const e=pr[k]||(pr[k]={});
+   if('p' in d){if(['ya','pronto','algun','no'].includes(d.p))e.p=d.p;else delete e.p}if('o' in d)e.o=d.o;if('tipo' in d){if(['terror','corta','otras'].includes(d.tipo))e.tipo=d.tipo;else delete e.tipo}if(!Object.keys(e).length)delete pr[k];return{ok:true,k,e}}
+  if(op.ruta==='/api/lectura'){cat.lectura=(op.d.orden||[]).map(x=>String(x).slice(0,120)).slice(0,1000);return{ok:true}}
   if(op.ruta==='/api/tengo'){const d=op.d;if(d.accion==='quiero')return {ok:true,buscado:d.titulo};
    const nn=x=>String(x||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
    let o=d.obra_id&&cat.obras.find(x=>x.id===d.obra_id)||cat.obras.find(x=>[x.titulo,...(x.alias||[]),...(x.tomos||[]).map(t=>t.serie)].some(y=>y&&nn(y)===nn(d.titulo)));
@@ -88,6 +91,7 @@
    if(ruta==='/api/buscados'){if(!datos.buscados)datos.buscados=await leer('buscados_fichas.json')||[];return json(datos.buscados)}
    if(ruta==='/api/novedades'){if(!datos.novedades)datos.novedades=await leer('novedades.json');const n=JSON.parse(JSON.stringify(datos.novedades||{cartas:{tuyas:[]},avisos:[],seguidas:[]}));
     if(n.cartas)for(const k in n.cartas)if(Array.isArray(n.cartas[k]))n.cartas[k]=n.cartas[k].filter(x=>!ocultas.has(x.id)&&!(k==='tuyas'&&ocultas.has('*tuyas')));n.activo=false;return json(n)}
+   if(ruta==='/api/prioridades'){if(!datos.catalogo)await carga();if(!datos.prioFichas)datos.prioFichas=await leer('prioridades_fichas.json')||{};const c=catalogoActual();return json({fichas:datos.prioFichas,prio:c.prioridades||{},lectura:c.lectura||[]})}
    if(ruta==='/api/estado')return json({activo:false,fase:'',hechas:0,total:0,pendientes:0,fallos:0,whakoom:(datos.catalogo||{}).whakoom||{}});
    if(ruta.startsWith('/api/relaciones/')){const id=decodeURIComponent(ruta.slice(16));return json(await relacionesNube(id,/forzar=1/.test(u)))}
    if(ruta==='/api/autor'){const nombre=new URLSearchParams(u.split('?')[1]||'').get('nombre')||'';const nn=x=>String(x||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').sort().join(' ');
@@ -154,7 +158,7 @@
  async function refresca(){if(!token||document.hidden)return;try{const antes=pendientes.length,viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;if(JSON.stringify(datos.catalogo.nube)!==viejo){datos.novedades=null;datos.buscados=null;try{bus=null}catch(e){}if(typeof cargar==='function')await cargar(true);if(antes&&!pendientes.length&&typeof toast==='function')toast('Guardado en la nube')}aviso()}catch(e){}}
  let cuenta=0;setInterval(()=>{cuenta++;if(pendientes.length||cola.length?cuenta%2===0:cuenta%12===0)refresca()},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){subir();refresca()}});
- const VERSION='14 nov 2026 · 18:15';
+ const VERSION='14 nov 2026 · 19:30';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const vista=new URLSearchParams(location.search).get('vista');if(vista)setTimeout(()=>document.querySelector(`.nav[data-view="${vista}"]`)?.click(),1500);
   const ip=document.getElementById('infoPanel');if(ip){

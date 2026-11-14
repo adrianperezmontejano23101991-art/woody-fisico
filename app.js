@@ -51,6 +51,7 @@ function render(){document.body.dataset.vista=ui.vista;$('autorObras')?.remove()
  if(ui.vista==='colecciones')return pintaColecciones();
  if(ui.vista==='extras')return pintaExtras();
  if(ui.vista==='buscados')return pintaBuscados();
+ if(ui.vista==='prioridades')return pintaPrioridades();
  if(ui.vista==='descubrir')return pintaDescubrir();
  const l=ordenar(filtradas());$('contador').textContent=l.length+(l.length===1?' obra · ':' obras · ')+l.reduce((n,o)=>n+o._tengo,0)+' tomos en casa';$('crumbTitle').textContent=ui.autor||'';
  if(ui.vista==='puntuaciones'&&ui.modo==='cuadro')return pintaNiveles(l);
