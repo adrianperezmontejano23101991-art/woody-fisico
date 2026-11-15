@@ -50,8 +50,13 @@ function pintaMas(){const g=$('grid');g.className='grouped';const rev=obras.filt
   <button data-clic="infoBtn">ⓘ Whakoom, clave y versión<small>Sincronizar con Whakoom y datos de la app</small></button></div>`;
  g.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>{ui.vista=b.dataset.ir;render()});g.querySelectorAll('[data-clic]').forEach(b=>b.onclick=()=>$(b.dataset.clic).click())}
 
+// ---------- barra: lo que tengo frente a lo que me falta
+const barra=document.createElement('div');barra.id='barraCol';barra.hidden=true;
+async function pintaBarra(){if(!bus)try{bus=await api('/api/buscados')}catch{return}
+ const t=obras.filter(o=>o.tiene).length,f=bus.filter(b=>!(window.esMiaBus&&esMiaBus(b))).length,tot=t+f,pc=tot?Math.round(t*100/tot):0;
+ barra.innerHTML=`<div class="bc-txt"><span>Tienes <b>${t}</b> títulos</span><span>Te faltan <b>${f}</b></span></div><div class="bc-barra" title="${pc} %"><i style="width:${pc}%"></i><em>${pc} %</em></div>`}
 // ---------- pintar
-const sub=document.createElement('div');sub.id='subnav';sub.className='seg';sub.hidden=true;$('estados').before(sub);
+const sub=document.createElement('div');sub.id='subnav';sub.className='seg';sub.hidden=true;$('estados').before(sub);sub.after(barra);
 sub.onclick=e=>{const b=e.target.closest('[data-sub]');if(!b)return;ui.vista=b.dataset.sub;ui.autor=null;if(ui.vista==='puntuaciones'){$('orden').value='nota';ui.ordenCol=null}render()};
 let antes='';
 {const _render=render;render=function(){cola=null;document.querySelectorAll('.trozos-fin').forEach(x=>x.remove());const v=ui.vista,gr=GRUPO[v]||v;
@@ -62,7 +67,7 @@ let antes='';
   corta=false;
   document.querySelectorAll('.views .nav').forEach(b=>b.classList.toggle('active',b.dataset.view===gr));
   const s=SUB[gr];sub.hidden=!s||!!ui.autor;if(s)sub.innerHTML=s.map(([k,t])=>`<button data-sub="${k}" class="${v===k?'on':''}">${t}</button>`).join('');
-  document.body.dataset.grupo=gr;if(antes!==v){antes=v;scrollTo(0,0);document.querySelector('main')?.scrollTo?.(0,0)}}}
+  barra.hidden=v!=='obras'||!!ui.autor;if(!barra.hidden)pintaBarra();document.body.dataset.grupo=gr;if(antes!==v){antes=v;scrollTo(0,0);document.querySelector('main')?.scrollTo?.(0,0)}}}
 $('grid').addEventListener('click',e=>{const t=e.target;const b=t.closest('[data-bus]');if(b&&bus)return abrirBus(bus[+b.dataset.bus]);
  const po=t.closest('[data-po]');if(po)return abrir(po.dataset.po);
  const ps=t.closest('[data-ps]');if(ps)return window.abrePs?.(+ps.dataset.ps);

@@ -90,3 +90,10 @@ body[data-vista=mas] .toolbar,body[data-vista=mas] #estados{display:none}
 .pforma{margin:0 0 10px}
 .pley .pverde-l{border-color:#4f8a4f}
 @media (max-width:650px){.pcal{max-height:calc(100dvh - 190px)}.pcal td{min-width:118px;width:118px}.pcal tbody th{font-size:15px;padding:6px 4px}}
+#barraCol{margin:0 0 12px}
+#barraCol[hidden]{display:none}
+.bc-txt{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px}
+.bc-txt b{color:var(--text,#eee);font-size:15px}
+.bc-barra{position:relative;height:18px;border-radius:9px;background:#3a2a2a;overflow:hidden;border:1px solid var(--line)}
+.bc-barra i{display:block;height:100%;background:#7fc96b}
+.bc-barra em{position:absolute;inset:0;text-align:center;font:600 11px/17px system-ui;color:#fff;text-shadow:0 0 3px #000}
