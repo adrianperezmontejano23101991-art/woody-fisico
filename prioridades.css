@@ -62,3 +62,17 @@ body[data-vista=prioridades] .toolbar,body[data-vista=prioridades] #estados{disp
 .pverde{background:#2a4a2a!important;border-color:#4f8a43!important;border-left-color:#7fc96b!important}
 .pacciones{margin-top:12px}
 .ncard h3{cursor:pointer}
+#subnav{margin:0 0 10px;flex-wrap:wrap}
+body[data-vista=mas] .toolbar,body[data-vista=mas] #estados{display:none}
+.mas-menu{display:grid;gap:10px;max-width:520px}
+.mas-menu button{display:grid;grid-template-columns:1fr auto;text-align:left;padding:14px 16px;font-size:16px;border-radius:12px}
+.mas-menu button small{grid-column:1/-1;color:var(--muted);font-size:12.5px;margin-top:2px}
+.mas-menu button b{color:var(--accent)}
+.pgridl{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.pchips{margin:0 0 14px;display:flex;gap:6px;flex-wrap:wrap}
+.panos{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+.panos .chip{flex:none}
+.trozos-fin{height:1px}
+@media (max-width:650px){.pgridl{grid-template-columns:1fr}.views .nav{flex:1 1 0}}
+#subnav[hidden]{display:none}
+@media (max-width:650px){.nov-cab{flex-wrap:wrap;gap:8px}.nov-cab .seg{width:100%;overflow-x:auto;flex-wrap:nowrap}.nov-cab .seg button{flex:1 0 auto;white-space:nowrap}}

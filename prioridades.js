@@ -8,14 +8,16 @@ const TIPOS=[['todo','Todo'],['terror','Terror'],['corta','Tomo único y cortas'
 const TIPO_TXT={terror:'Terror',corta:'Tomo único / corta',otras:'Resto'};
 const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MESL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-let P=null,pv='comprar',ptipo='todo',verNo=false,arrastra=null;
+let P=null,pv='comprar',ptipo='todo',pcol='ya',pano='',SAL=[],arrastra=null;
 try{const g=JSON.parse(localStorage.getItem('prio')||'{}');if(g.pv)pv=g.pv;if(g.ptipo)ptipo=g.ptipo}catch{}
 const recuerda=()=>{try{localStorage.setItem('prio',JSON.stringify({pv,ptipo}))}catch{}};
 
-function indiceObras(){const m=new Map();for(const o of obras)for(const t of [o.titulo,...(o.alias||[]),...(o.tomos||[]).map(x=>x.serie)]){const k=ntk(t);if(k&&!m.has(k))m.set(k,o)}return m}
+let VER=0,cIx=null,cL=null;{const _api=api;api=async function(u,d){if(d!==undefined){VER++;cIx=cL=null}return _api(u,d)}}
+function indiceObras(){if(cIx&&cIx.o===obras&&cIx.n===obras.length)return cIx.m;const m=new Map();for(const o of obras)for(const t of [o.titulo,...(o.alias||[]),...(o.tomos||[]).map(x=>x.serie)]){const k=ntk(t);if(k&&!m.has(k))m.set(k,o)}cIx={o:obras,n:obras.length,m};return m}
 function estadoEs(lm,f){if(!lm){const e=String(f.estado||'');return e.charAt(0).toUpperCase()+e.slice(1)}const e=lm.est||'';if(/abierta/.test(e))return 'Abierta · '+(lm.ed_n||0)+(lm.n?' de '+lm.n:'');if(/pausa/.test(e))return 'En pausa · '+(lm.ed_n||0)+(lm.n?' de '+lm.n:'');if(/cancel/.test(e))return 'Cancelada';if(lm.n&&lm.ed_n>=lm.n)return 'Terminada';if(lm.n&&lm.ed_n<lm.n)return 'En curso · '+(lm.ed_n||0)+' de '+lm.n;return e.charAt(0).toUpperCase()+e.slice(1)}
 const terminada=lm=>!!(lm&&lm.n&&lm.ed_n>=lm.n&&/completa/.test(lm.est||''));const sinAcabar=lm=>!!(lm&&/cancel|pausa/.test(lm.est||''));
-function lista(){const ob=indiceObras(),busK=new Map();(bus||[]).forEach(b=>{const k=ntk(b.t);if(k&&!busK.has(k))busK.set(k,b)});
+function lista(){if(cL&&cL.o===obras&&cL.b===bus&&cL.P===P&&cL.v===VER)return cL.l;const l=lista0();cL={o:obras,b:bus,P,v:VER,l};return l}
+function lista0(){const ob=indiceObras(),busK=new Map();(bus||[]).forEach(b=>{const k=ntk(b.t);if(k&&!busK.has(k))busK.set(k,b)});
  const ks=new Set([...Object.keys(P.fichas),...busK.keys()]);const out=[];
  for(const k of ks){const f=P.fichas[k]||{},b=busK.get(k),pr=P.prio[k]||{};const it={k,t:f.t||b?.t||k,a:b?.a?.length?b.a:(f.a||[]),img:b?.img||f.img||'',url:b?.url||f.url||'',nota:b?.nota??f.nota,n:(v=>/^\d+$/.test(String(v))?v+(v==1?' tomo':' tomos'):v)(b?.n||f.n||f.tomos||''),gen:b?.gen||f.gen||'',g:f.g||'',ed:b?.p||f.ed||'',estado:b?.e||f.estado||'',lm:f.lm||null,precio:f.precio,dif:f.dif,anyo:f.anyo,grupo:f.prox,nex:f.nota_ex,fuentes:f.f||(b?['Buscados']:[]),buscado:!!b,p:pr.p||'',o:pr.o,d:String(b?.d||f.d||'')
   .replace(/(\s*[\r\n]\s*)+/g,'\n'),cal:!!f.cal,idioma:b?.l||f.idioma||'',formato:b?.ed||''};
@@ -43,20 +45,20 @@ window.pintaPrioridades=async function(){const g=$('grid');g.className='grouped'
  const todo=lista();const l=todo.filter(it=>pasa(it,q));
  if(pv==='calendario'||pv==='anos')return pintaCalendario(g,l);
  const vivos=l.filter(it=>it.p!=='no'&&!it.cal),no=l.filter(it=>it.p==='no'&&!it.cal);
- g.innerHTML=cabecera(`${vivos.length} por comprar`)+tiposHtml()+`<div class="pboard">${COLS.map(([p,t])=>{const c=vivos.filter(it=>it.p===p).sort(ordenCol);return `<section class="pcol" data-pcol="${p}"><h3>${t}<small>${c.length}</small></h3><div class="plist">${c.map(tarjetaP).join('')||'<p class="pvacio">Arrastra aquí o cámbialo desde la ficha.</p>'}</div></section>`}).join('')}</div>`+
-  `<div class="pfin"><button id="pExcel">⬇ Descargar Excel</button>${no.length?` <button id="pVerNo">${verNo?'Ocultar':'Ver'} las que no te interesan (${no.length})</button>`:''}</div>`+(verNo&&no.length?`<div class="plist pno">${no.sort(ordenCol).map(tarjetaP).join('')}</div>`:'');
- enlaza(g,todo);
- if(innerWidth<650){const bd=g.querySelector('.pboard'),c=[...bd.children].find(x=>x.querySelector('.pcard'));if(c)bd.scrollLeft=c.offsetLeft-bd.offsetLeft}
- $('pExcel').onclick=()=>excel(todo.filter(it=>it.p!=='no'&&!it.cal));if($('pVerNo'))$('pVerNo').onclick=()=>{verNo=!verNo;pintaPrioridades()}};
+ const grupos=[...COLS,['no','No me interesa']].map(([p,t])=>[p,t,(p==='no'?no:vivos.filter(it=>it.p===p)).sort(ordenCol)]);
+ if(!grupos.some(x=>x[0]===pcol&&x[2].length))pcol=(grupos.find(x=>x[2].length)||grupos[0])[0];
+ const cab=cabecera(`${vivos.length} por comprar`)+tiposHtml()+`<div class="chips pchips">${grupos.map(([p,t,v])=>`<button class="chip ${pcol===p?'on':''}" data-pc="${p}">${t}<b>${v.length}</b></button>`).join('')}<button class="chip" id="pExcel">⬇ Excel</button></div>`;
+ trozos(g,cab,[{t:null,items:grupos.find(x=>x[0]===pcol)[2]}],tarjetaP,'pgridl');
+ enlaza(g);
+ g.querySelectorAll('[data-pc]').forEach(b=>b.onclick=()=>{pcol=b.dataset.pc;pintaPrioridades()});
+ $('pExcel').onclick=()=>excel(todo.filter(it=>it.p!=='no'&&!it.cal))};
 
-function enlaza(g,todo){g.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{pv=b.dataset.pv;recuerda();pintaPrioridades()});
- g.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{ptipo=b.dataset.pt;recuerda();pintaPrioridades()});
- const porK=new Map(todo.map(it=>[it.k,it]));
- g.querySelectorAll('.pcard').forEach(c=>{c.onclick=()=>fichaP(porK.get(c.dataset.pk),todo);c.ondragstart=e=>{arrastra=c.dataset.pk;e.dataTransfer.effectAllowed='move';c.classList.add('parr')};c.ondragend=()=>{c.classList.remove('parr');arrastra=null}});
- g.querySelectorAll('[data-pcol]').forEach(s=>{s.ondragover=e=>{if(!arrastra)return;e.preventDefault();s.classList.add('psobre')};s.ondragleave=()=>s.classList.remove('psobre');
-  s.ondrop=e=>{e.preventDefault();s.classList.remove('psobre');if(!arrastra)return;const it=porK.get(arrastra);const ante=e.target.closest?.('.pcard');coloca(it,s.dataset.pcol,ante&&ante.dataset.pk!==it.k?porK.get(ante.dataset.pk):null,todo)}})}
+function enlaza(g){g.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{pv=b.dataset.pv;recuerda();pintaPrioridades()});
+ g.querySelectorAll('[data-pt]').forEach(b=>b.onclick=()=>{ptipo=b.dataset.pt;recuerda();pintaPrioridades()})}
+window.abrePk=k=>{const l=lista();fichaP(l.find(x=>x.k===k),l)};
+window.abrePs=i=>{const x=SAL[i];if(!x)return;if(x.it)fichaP(x.it,lista());else fichaCol({titulo:x.t,img:x.img,url:x.url,sub:x.ex,fecha:fecha(x.m)})};
 
-async function cambia(k,d){const e=P.prio[k]||(P.prio[k]={});Object.assign(e,d);if('p' in d&&!d.p)delete e.p;if('tipo' in d&&!d.tipo)delete e.tipo;if(!Object.keys(e).length)delete P.prio[k];await api('/api/prioridad',{k,...d})}
+async function cambia(k,d){cL=null;const e=P.prio[k]||(P.prio[k]={});Object.assign(e,d);if('p' in d&&!d.p)delete e.p;if('tipo' in d&&!d.tipo)delete e.tipo;if(!Object.keys(e).length)delete P.prio[k];await api('/api/prioridad',{k,...d})}
 // pone «it» en la columna p, delante de «antes» (o al final); numera solo lo que hace falta
 async function coloca(it,p,antes,todo){const col=todo.filter(x=>x.p===p&&x.k!==it.k&&x.p!=='no').sort(ordenCol);const i=antes?col.indexOf(antes):-1;
  const ops=[];if(i>=0){const hasta=col.slice(0,i+1);hasta.forEach((x,j)=>{const o=j<i?j:j+1;if(x.o!==o)ops.push([x.k,{o}])});ops.push([it.k,{p,o:i}])}
@@ -116,6 +118,7 @@ window.esMia=function(c){const lmId=+((String(c.url||'').match(/coleccion\.php\?
 window.esMiaBus=function(b){const ix=indiceObras(),t=limpiaT(b.t),o=ix.get(ntk(t))||ix.get(baseT(b.t));if(!o||!o.tiene)return false;
  const nb=+((String(b.n||'').match(/\d+/)||[])[0]||0);if(nb&&o._tengo<nb)return false;
  const ed=ntk(String(b.p||'').split(/\s/)[0]);if(ed&&ed.length>2&&!o._eds.some(e=>ntk(e).includes(ed)))return false;return true};
+window.cargaPrio=()=>asegura();
 window.prioDe=t=>P?.prio?.[ntk(t)]?.p||'';
 document.addEventListener('click',async e=>{const b=e.target.closest?.('[data-busver="prio"]');if(!b||P)return;try{await asegura()}catch{}if(typeof pintaBuscados==='function')pintaBuscados()});
 
@@ -167,15 +170,24 @@ function pintaCalendario(g,l){const qq=sinAcento($('search').value.trim());const
  const cortas=vivos.filter(it=>!it.cal&&sinAcabar(it.lm));const siguen=new Set(obras.filter(o=>o.tiene&&ten[o.id]&&!sinAcabar(ten[o.id])).map(o=>baseT(o.titulo.replace(/\([^)]*\)/g,''))));const cortasMias=obras.filter(o=>o.tiene&&ten[o.id]&&sinAcabar(ten[o.id])&&!siguen.has(baseT(o.titulo.replace(/\([^)]*\)/g,'')))&&(!qq||sinAcento(o.titulo).includes(qq))).map(o=>({o,lm:ten[o.id]}));
  const miniMia=(x,ex)=>`<button class="pmini ${ex?'':'pverde'}" data-po="${esc(x.o.id)}" title="${esc(x.o.titulo)}">${portada(x.o)?`<img loading="lazy" src="${esc(portada(x.o))}" alt="">`:''}<span>${esc(x.o.titulo)}${ex?`<i>${esc(ex)} · tienes ${x.o._tengo}</i>`:''}</span>${ex?'':`<em>${x.o._tengo}/${x.lm.n}</em>`}</button>`;
  const conFecha=new Set(sal.filter(x=>x.it).map(x=>x.it.k));const abiertas=vivos.filter(it=>!it.cal&&it.tengo&&!terminada(it.lm)&&!conFecha.has(it.k));
+ SAL=sal;const mesT=m=>MESL[+m.slice(5)-1]+' '+m.slice(0,4);
  const leyenda=`<div class="pley">${COLS.map(([p,t])=>`<span class="p-${p||'nada'}">${t}</span>`).join('')}<span class="p-terror">Terror que no tienes en tus listas</span></div>`;
- g.innerHTML=cabecera(pv==='calendario'?`${sal.length} tomos con fecha que te interesan`:`${fin.length} por comprar · ${mias.length} completas en casa`)+tiposHtml()+leyenda+
-  (pv==='calendario'?
-  `<h2 class="group-title">Próximos tomos<small>Tus colecciones, todo el terror que sale, novedades de tus autores y buscados que se cierran</small></h2><div class="pcal"><table><thead><tr>${meses.map(m=>`<th>${MESL[+m.slice(5)-1]} ${m.slice(0,4)}</th>`).join('')}<th>Más adelante</th></tr></thead><tbody><tr>${meses.map(m=>`<td>${celda(m)}</td>`).join('')}<td>${luego.map(miniS).join('')}</td></tr></tbody></table></div>`+
-  `<h2 class="group-title">Colecciones que tienes a medias y sin próximo tomo con fecha<small>${abiertas.length}</small></h2><div class="pmis">${abiertas.sort(ordenCol).map(it=>mini(it)).join('')||'<p class="pvacio">Ninguna.</p>'}</div>`
-  :
-  `<h2 class="group-title">Terminadas en España<small>Por el mes en que salió el último tomo · en verde, lo que ya tienes completo</small></h2><div class="pcal"><table><thead><tr><th>Año</th>${MESL.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${anos.map(a=>`<tr><th>${a}</th>${MESL.map((_,i)=>{const m=a+'-'+String(i+1).padStart(2,'0');return `<td>${fin.filter(it=>it.lm.fin===m).sort(ordenCol).map(it=>mini(it)).join('')}${mias.filter(x=>x.lm.fin===m).sort((a,b)=>coll.compare(a.o.titulo,b.o.titulo)).map(x=>miniMia(x)).join('')}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`+
-  `<h2 class="group-title">Sin acabar en España<small>Canceladas o en pausa · ${cortas.length+cortasMias.length}</small></h2><div class="pmis">${cortasMias.map(x=>miniMia(x,'Cancelada'.replace('Cancelada',/pausa/.test(x.lm.est)?'En pausa':'Cancelada'))).join('')}${cortas.sort(ordenCol).map(it=>mini(it,/pausa/.test(it.lm.est)?'En pausa':'Cancelada en '+it.lm.ed_n)).join('')}</div>`);
- enlaza(g,l);const porK=new Map(l.map(it=>[it.k,it]));g.querySelectorAll('.pmini').forEach(b=>b.onclick=()=>{if(b.dataset.po){abrir(b.dataset.po);return}if(b.dataset.ps!=null){const x=sal[+b.dataset.ps];if(x.it)fichaP(x.it,l);else fichaCol({titulo:x.t,img:x.img,url:x.url,sub:x.ex,fecha:fecha(x.m)})}else fichaP(porK.get(b.dataset.pk),l)})}
+ if(pv==='calendario'){
+  g.innerHTML=cabecera(`${sal.length} tomos con fecha que te interesan`)+tiposHtml()+leyenda+
+   meses.filter(m=>sal.some(x=>x.m===m)).map(m=>`<h2 class="group-title">${mesT(m)}<small>${sal.filter(x=>x.m===m).length}</small></h2><div class="pmis">${celda(m)}</div>`).join('')+
+   (luego.length?`<h2 class="group-title">Más adelante<small>${luego.length}</small></h2><div class="pmis">${luego.map(miniS).join('')}</div>`:'')+
+   `<h2 class="group-title">Las tienes a medias y no hay próximo tomo con fecha<small>${abiertas.length}</small></h2><div class="pmis">${abiertas.sort(ordenCol).map(it=>mini(it)).join('')||'<p class="pvacio">Ninguna.</p>'}</div>`;
+ }else{
+  const nCort=cortas.length+cortasMias.length;if(pano!=='x'&&!anos.includes(pano))pano=anos.includes(String(ahora.getFullYear()))?String(ahora.getFullYear()):(anos[0]||'x');
+  const chips=`<div class="chips pchips panos">${anos.map(a=>`<button class="chip ${pano===a?'on':''}" data-py="${a}">${a}<b>${fin.filter(it=>it.lm.fin.startsWith(a)).length+mias.filter(x=>x.lm.fin.startsWith(a)).length}</b></button>`).join('')}<button class="chip ${pano==='x'?'on':''}" data-py="x">Sin acabar<b>${nCort}</b></button></div>`;
+  const cuerpo=pano==='x'
+   ?`<h2 class="group-title">Sin acabar en España<small>Canceladas o en pausa</small></h2><div class="pmis">${cortasMias.map(x=>miniMia(x,/pausa/.test(x.lm.est)?'En pausa':'Cancelada')).join('')}${cortas.sort(ordenCol).map(it=>mini(it,/pausa/.test(it.lm.est)?'En pausa':'Cancelada en '+it.lm.ed_n)).join('')}</div>`
+   :MESL.map((n,i)=>{const m=pano+'-'+String(i+1).padStart(2,'0');const a=fin.filter(it=>it.lm.fin===m).sort(ordenCol),b=mias.filter(x=>x.lm.fin===m).sort((x,y)=>coll.compare(x.o.titulo,y.o.titulo));return a.length+b.length?`<h2 class="group-title">${n} ${pano}<small>${a.length+b.length}</small></h2><div class="pmis">${a.map(it=>mini(it)).join('')}${b.map(x=>miniMia(x)).join('')}</div>`:''}).join('');
+  g.innerHTML=cabecera(`${fin.length} terminadas por comprar · ${mias.length} completas en casa (en verde)`)+tiposHtml()+chips+cuerpo;
+  g.querySelectorAll('[data-py]').forEach(b=>b.onclick=()=>{pano=b.dataset.py;pintaPrioridades()});
+  g.querySelector('.panos .on')?.scrollIntoView({block:'nearest',inline:'center'});
+ }
+ enlaza(g)}
 
 // ---------- Excel (.xlsx hecho aquí mismo, sin librerías)
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
