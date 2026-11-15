@@ -91,6 +91,7 @@
    if(ruta==='/api/buscados'){if(!datos.buscados)datos.buscados=await leer('buscados_fichas.json')||[];return json(datos.buscados)}
    if(ruta==='/api/novedades'){if(!datos.novedades)datos.novedades=await leer('novedades.json');const n=JSON.parse(JSON.stringify(datos.novedades||{cartas:{tuyas:[]},avisos:[],seguidas:[]}));
     if(n.cartas)for(const k in n.cartas)if(Array.isArray(n.cartas[k]))n.cartas[k]=n.cartas[k].filter(x=>!ocultas.has(x.id)&&!(k==='tuyas'&&ocultas.has('*tuyas')));n.activo=false;return json(n)}
+   if(ruta==='/api/woody'){if(!datos.woody)datos.woody=await leer('woody_fichas.json')||[];return json(datos.woody)}
    if(ruta==='/api/prioridades'){if(!datos.catalogo)await carga();if(!datos.prioFichas)datos.prioFichas=await leer('prioridades_fichas.json')||{};const c=catalogoActual();return json({fichas:datos.prioFichas,prio:c.prioridades||{},lectura:c.lectura||[]})}
    if(ruta==='/api/estado')return json({activo:false,fase:'',hechas:0,total:0,pendientes:0,fallos:0,whakoom:(datos.catalogo||{}).whakoom||{}});
    if(ruta.startsWith('/api/relaciones/')){const id=decodeURIComponent(ruta.slice(16));return json(await relacionesNube(id,/forzar=1/.test(u)))}
@@ -158,7 +159,7 @@
  async function refresca(){if(!token||document.hidden)return;try{const antes=pendientes.length,viejo=JSON.stringify((datos.catalogo||{}).nube);datos.catalogo=await leer('catalogo.json')||datos.catalogo;if(JSON.stringify(datos.catalogo.nube)!==viejo){datos.novedades=null;datos.buscados=null;try{bus=null}catch(e){}if(typeof cargar==='function')await cargar(true);if(antes&&!pendientes.length&&typeof toast==='function')toast('Guardado en la nube')}aviso()}catch(e){}}
  let cuenta=0;setInterval(()=>{cuenta++;if(pendientes.length||cola.length?cuenta%2===0:cuenta%12===0)refresca()},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){subir();refresca()}});
- const VERSION='15 nov 2026 · 10:50';
+ const VERSION='15 nov 2026 · 12:00';
  document.addEventListener('DOMContentLoaded',()=>{aviso();subir();
   const vista=new URLSearchParams(location.search).get('vista');if(vista)setTimeout(()=>document.querySelector(`.nav[data-view="${vista}"]`)?.click(),1500);
   const ip=document.getElementById('infoPanel');if(ip){
