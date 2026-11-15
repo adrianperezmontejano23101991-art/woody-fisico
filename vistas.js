@@ -32,12 +32,12 @@ pintaAutores=function(){const m=new Map();filtradas().forEach(o=>(o.autores||[])
 // ---------- Buscados
 pintaBuscados=async function(){const g=$('grid');if(!bus){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';try{bus=await api('/api/buscados')}catch(e){g.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}if(ui.vista!=='buscados')return}
  const q=sinAcento($('search').value.trim());const mias=new Set(window.esMiaBus?bus.filter(esMiaBus):[]);
- const idx=bus.map((b,i)=>[b,i]).filter(([b])=>!q||sinAcento(b.t+' '+(b.a||[]).join(' ')).includes(q));
+ const idx=bus.map((b,i)=>[b,i]).filter(([b])=>!mias.has(b)).filter(([b])=>!q||sinAcento(b.t+' '+(b.a||[]).join(' ')).includes(q));
  const PRN={ya:'1 · Ya',pronto:'2 · Pronto',algun:'3 · Algún día',no:'5 · No me interesa'};
  const clave=b=>busVer==='prio'?(PRN[window.prioDe?prioDe(b.t):'']||'4 · Sin decidir'):busVer==='genero'?(b.gen||'Sin género'):busVer==='autor'?((b.a||[])[0]||'Autor pendiente'):(sinAcento(b.t).match(/[a-z0-9]/)||['#'])[0].toUpperCase();
  const m=new Map();idx.forEach(x=>{const k=clave(x[0]);(m.get(k)||m.set(k,[]).get(k)).push(x)});
  const orden=[...m].sort((a,b)=>busVer==='genero'?b[1].length-a[1].length:coll.compare(a[0],b[0]));orden.forEach(x=>x[1].sort((a,b)=>coll.compare(a[0].t,b[0].t)));
- const cab=`<div class="nov-cab"><div><b>Buscados</b><small>${bus.length} en tu lista de Whakoom${mias.size?` · ${mias.size} ya los tienes`:''}${idx.length!==bus.length?` · ${idx.length} con este filtro`:''}</small></div><div class="seg">${[['genero','Género'],['autor','Autor'],['az','A–Z'],['prio','Prioridad']].map(([k,t])=>`<button data-busver="${k}" class="${busVer===k?'on':''}">${t}</button>`).join('')}</div></div>`;
+ const cab=`<div class="nov-cab"><div><b>Buscados</b><small>${bus.length-mias.size} que te faltan${mias.size?` · ${mias.size} que ya tienes no salen (quítalos de buscados en Whakoom)`:''}${q?` · ${idx.length} con este filtro`:''}</small></div><div class="seg">${[['genero','Género'],['autor','Autor'],['az','A–Z'],['prio','Prioridad']].map(([k,t])=>`<button data-busver="${k}" class="${busVer===k?'on':''}">${t}</button>`).join('')}</div></div>`;
  trozos(g,cab,orden.map(([t,items])=>({t,items})),([b,i])=>`<div class="card" role="button" tabindex="0" data-bus="${i}"><div class="cover">${b.img?`<img loading="lazy" src="${esc(b.img)}" alt="" onerror="this.remove()">`:''}<div class="placeholder">${esc(b.t)}</div>${mias.has(b)?'<span class="estado-badge" style="background:#2a4a2a">Ya la tienes</span>':''}</div><h3>${esc(b.t)}</h3><p>${esc((b.a||[]).join(', ')||'Autor pendiente')}</p><p class="meta">${esc([b.n,b.p].filter(Boolean).join(' · '))}</p></div>`);
  g.querySelectorAll('[data-busver]').forEach(b=>b.onclick=async()=>{busVer=b.dataset.busver;if(busVer==='prio'&&window.cargaPrio)try{await cargaPrio()}catch{}pintaBuscados()})};
 
