@@ -8,7 +8,7 @@ const TIPOS=[['todo','Todo'],['terror','Terror'],['corta','Tomo único y cortas'
 const TIPO_TXT={terror:'Terror',corta:'Tomo único / corta',otras:'Resto'};
 const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MESL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-let P=null,pv='comprar',ptipo='todo',pcol='ya',pano='',SAL=[],arrastra=null;
+let P=null,pv='comprar',ptipo='todo',pcol='ya',pano='',pform=(()=>{try{return localStorage.getItem('wf-pform')}catch{}})()||'tabla',SAL=[],arrastra=null;
 try{const g=JSON.parse(localStorage.getItem('prio')||'{}');if(g.pv)pv=g.pv;if(g.ptipo)ptipo=g.ptipo}catch{}
 const recuerda=()=>{try{localStorage.setItem('prio',JSON.stringify({pv,ptipo}))}catch{}};
 
@@ -171,22 +171,31 @@ function pintaCalendario(g,l){const qq=sinAcento($('search').value.trim());const
  const miniMia=(x,ex)=>`<button class="pmini ${ex?'':'pverde'}" data-po="${esc(x.o.id)}" title="${esc(x.o.titulo)}">${portada(x.o)?`<img loading="lazy" src="${esc(portada(x.o))}" alt="">`:''}<span>${esc(x.o.titulo)}${ex?`<i>${esc(ex)} · tienes ${x.o._tengo}</i>`:''}</span>${ex?'':`<em>${x.o._tengo}/${x.lm.n}</em>`}</button>`;
  const conFecha=new Set(sal.filter(x=>x.it).map(x=>x.it.k));const abiertas=vivos.filter(it=>!it.cal&&it.tengo&&!terminada(it.lm)&&!conFecha.has(it.k));
  SAL=sal;const mesT=m=>MESL[+m.slice(5)-1]+' '+m.slice(0,4);
- const leyenda=`<div class="pley">${COLS.map(([p,t])=>`<span class="p-${p||'nada'}">${t}</span>`).join('')}<span class="p-terror">Terror que no tienes en tus listas</span></div>`;
+ const leyenda=`<div class="pley">${COLS.map(([p,t])=>`<span class="p-${p||'nada'}">${t}</span>`).join('')}<span class="p-terror">Terror que no tienes en tus listas</span><span class="pverde-l">Completa en casa</span></div>`;
+ const forma=`<div class="seg pforma"><button data-pf="tabla" class="${pform==='tabla'?'on':''}">▦ Cuadrícula</button><button data-pf="lista" class="${pform==='lista'?'on':''}">☰ Lista</button></div>`;
+ const deMes=m=>[fin.filter(it=>it.lm.fin===m).sort(ordenCol),mias.filter(x=>x.lm.fin===m).sort((x,y)=>coll.compare(x.o.titulo,y.o.titulo))];
+ const nAno=a=>fin.filter(it=>it.lm.fin.startsWith(a)).length+mias.filter(x=>x.lm.fin.startsWith(a)).length;
  if(pv==='calendario'){
-  g.innerHTML=cabecera(`${sal.length} tomos con fecha que te interesan`)+tiposHtml()+leyenda+
-   meses.filter(m=>sal.some(x=>x.m===m)).map(m=>`<h2 class="group-title">${mesT(m)}<small>${sal.filter(x=>x.m===m).length}</small></h2><div class="pmis">${celda(m)}</div>`).join('')+
-   (luego.length?`<h2 class="group-title">Más adelante<small>${luego.length}</small></h2><div class="pmis">${luego.map(miniS).join('')}</div>`:'')+
+  const conAlgo=meses.filter(m=>sal.some(x=>x.m===m));
+  g.innerHTML=cabecera(`${sal.length} tomos con fecha que te interesan`)+tiposHtml()+forma+leyenda+
+   (pform==='tabla'
+    ?`<div class="pcal"><table><thead><tr>${meses.map(m=>`<th class="${m===ym?'phoy':''}">${mesT(m)}<b>${sal.filter(x=>x.m===m).length||''}</b></th>`).join('')}<th>Más adelante<b>${luego.length||''}</b></th></tr></thead><tbody><tr>${meses.map(m=>`<td class="${m===ym?'phoy':''}">${celda(m)}</td>`).join('')}<td>${luego.map(miniS).join('')}</td></tr></tbody></table></div>`
+    :conAlgo.map(m=>`<h2 class="group-title">${mesT(m)}<small>${sal.filter(x=>x.m===m).length}</small></h2><div class="pmis">${celda(m)}</div>`).join('')+(luego.length?`<h2 class="group-title">Más adelante<small>${luego.length}</small></h2><div class="pmis">${luego.map(miniS).join('')}</div>`:''))+
    `<h2 class="group-title">Las tienes a medias y no hay próximo tomo con fecha<small>${abiertas.length}</small></h2><div class="pmis">${abiertas.sort(ordenCol).map(it=>mini(it)).join('')||'<p class="pvacio">Ninguna.</p>'}</div>`;
  }else{
-  const nCort=cortas.length+cortasMias.length;if(pano!=='x'&&!anos.includes(pano))pano=anos.includes(String(ahora.getFullYear()))?String(ahora.getFullYear()):(anos[0]||'x');
-  const chips=`<div class="chips pchips panos">${anos.map(a=>`<button class="chip ${pano===a?'on':''}" data-py="${a}">${a}<b>${fin.filter(it=>it.lm.fin.startsWith(a)).length+mias.filter(x=>x.lm.fin.startsWith(a)).length}</b></button>`).join('')}<button class="chip ${pano==='x'?'on':''}" data-py="x">Sin acabar<b>${nCort}</b></button></div>`;
-  const cuerpo=pano==='x'
-   ?`<h2 class="group-title">Sin acabar en España<small>Canceladas o en pausa</small></h2><div class="pmis">${cortasMias.map(x=>miniMia(x,/pausa/.test(x.lm.est)?'En pausa':'Cancelada')).join('')}${cortas.sort(ordenCol).map(it=>mini(it,/pausa/.test(it.lm.est)?'En pausa':'Cancelada en '+it.lm.ed_n)).join('')}</div>`
-   :MESL.map((n,i)=>{const m=pano+'-'+String(i+1).padStart(2,'0');const a=fin.filter(it=>it.lm.fin===m).sort(ordenCol),b=mias.filter(x=>x.lm.fin===m).sort((x,y)=>coll.compare(x.o.titulo,y.o.titulo));return a.length+b.length?`<h2 class="group-title">${n} ${pano}<small>${a.length+b.length}</small></h2><div class="pmis">${a.map(it=>mini(it)).join('')}${b.map(x=>miniMia(x)).join('')}</div>`:''}).join('');
-  g.innerHTML=cabecera(`${fin.length} terminadas por comprar · ${mias.length} completas en casa (en verde)`)+tiposHtml()+chips+cuerpo;
-  g.querySelectorAll('[data-py]').forEach(b=>b.onclick=()=>{pano=b.dataset.py;pintaPrioridades()});
-  g.querySelector('.panos .on')?.scrollIntoView({block:'nearest',inline:'center'});
+  const nCort=cortas.length+cortasMias.length;const sinAc=`<h2 class="group-title" id="pSin">Sin acabar en España<small>Canceladas o en pausa · ${nCort}</small></h2><div class="pmis">${cortasMias.map(x=>miniMia(x,/pausa/.test(x.lm.est)?'En pausa':'Cancelada')).join('')}${cortas.sort(ordenCol).map(it=>mini(it,/pausa/.test(it.lm.est)?'En pausa':'Cancelada en '+it.lm.ed_n)).join('')}</div>`;
+  if(pform==='lista'&&pano!=='x'&&!anos.includes(pano))pano=anos.includes(String(ahora.getFullYear()))?String(ahora.getFullYear()):(anos[0]||'x');
+  const chips=`<div class="chips pchips panos">${anos.map(a=>`<button class="chip ${pform==='lista'&&pano===a?'on':''}" data-py="${a}">${a}<b>${nAno(a)}</b></button>`).join('')}<button class="chip ${pform==='lista'&&pano==='x'?'on':''}" data-py="x">Sin acabar<b>${nCort}</b></button></div>`;
+  const cuerpo=pform==='tabla'
+   ?`<div class="pcal panual"><table><thead><tr><th>Año</th>${MESL.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${anos.map(a=>`<tr id="pa${a}"><th>${a}<b>${nAno(a)}</b></th>${MESL.map((_,i)=>{const [x,y]=deMes(a+'-'+String(i+1).padStart(2,'0'));return `<td>${x.map(it=>mini(it)).join('')}${y.map(z=>miniMia(z)).join('')}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`+sinAc
+   :pano==='x'?sinAc:MESL.map((n,i)=>{const [x,y]=deMes(pano+'-'+String(i+1).padStart(2,'0'));return x.length+y.length?`<h2 class="group-title">${n} ${pano}<small>${x.length+y.length}</small></h2><div class="pmis">${x.map(it=>mini(it)).join('')}${y.map(z=>miniMia(z)).join('')}</div>`:''}).join('');
+  g.innerHTML=cabecera(`${fin.length} terminadas por comprar · ${mias.length} completas en casa (en verde)`)+tiposHtml()+forma+leyenda+chips+cuerpo;
+  g.querySelectorAll('[data-py]').forEach(b=>b.onclick=()=>{const a=b.dataset.py;if(pform==='lista'){pano=a;pintaPrioridades();return}
+   if(a==='x'){$('pSin').scrollIntoView({block:'start'});return}
+   const caja=g.querySelector('.pcal'),f=$('pa'+a);caja.scrollTop=f.offsetTop-caja.querySelector('thead').offsetHeight;caja.scrollIntoView({block:'start'})});
+  if(pform==='lista')g.querySelector('.panos .on')?.scrollIntoView({block:'nearest',inline:'center'});
  }
+ g.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{pform=b.dataset.pf;try{localStorage.setItem('wf-pform',pform)}catch{}pintaPrioridades()});
  enlaza(g)}
 
 // ---------- Excel (.xlsx hecho aquí mismo, sin librerías)

@@ -76,3 +76,17 @@ body[data-vista=mas] .toolbar,body[data-vista=mas] #estados{display:none}
 @media (max-width:650px){.pgridl{grid-template-columns:1fr}.views .nav{flex:1 1 0}}
 #subnav[hidden]{display:none}
 @media (max-width:650px){.nov-cab{flex-wrap:wrap;gap:8px}.nov-cab .seg{width:100%;overflow-x:auto;flex-wrap:nowrap}.nov-cab .seg button{flex:1 0 auto;white-space:nowrap}}
+.pcal{max-height:calc(100dvh - 150px);overflow:auto;border:1px solid var(--line);border-radius:10px;overscroll-behavior:contain}
+.pcal table{border-collapse:separate;border-spacing:0}
+.pcal thead th{z-index:3;top:0}
+.pcal thead th:first-child{left:0;z-index:4}
+.pcal:not(.panual) thead th:first-child{left:auto;z-index:3}
+.pcal tbody th{z-index:2;text-align:center;padding:8px 6px}
+.pcal th b{display:block;font:500 11px system-ui;color:var(--accent)}
+.pcal thead th b{display:inline;margin-left:5px}
+.pcal .phoy{background:#26301c}
+.pcal thead th.phoy{background:#34432a}
+.panual td:empty{min-width:36px;width:36px}
+.pforma{margin:0 0 10px}
+.pley .pverde-l{border-color:#4f8a4f}
+@media (max-width:650px){.pcal{max-height:calc(100dvh - 190px)}.pcal td{min-width:118px;width:118px}.pcal tbody th{font-size:15px;padding:6px 4px}}
