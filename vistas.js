@@ -6,6 +6,8 @@ const GRUPO={obras:'obras',puntuaciones:'obras',autores:'obras',buscados:'buscad
 const SUB={obras:[['obras','Obras'],['puntuaciones','Por nota'],['autores','Autores']],novedades:[['novedades','Mis novedades'],['todasnov','Todas las novedades'],['proximos','Próximos'],['descubrir','Descubrir']]};
 const LOTE=60;let cola=null;
 
+// la portada «imagen censurada» de Listado Manga no se enseña en ningún sitio
+document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&/08a02c268a6d6b2304c152aa0acdc7a0|imagen_censurada/i.test(t.src))t.remove()},true);
 // ---------- pintar a trozos
 function sigue(){if(!cola)return;const c=cola;let n=0;
  while(n<LOTE&&c.gi<c.grupos.length){const G=c.grupos[c.gi];
@@ -32,7 +34,9 @@ pintaAutores=function(){const m=new Map();filtradas().forEach(o=>(o.autores||[])
 // ---------- Buscados
 pintaBuscados=async function(){const g=$('grid');if(!bus){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';try{bus=await api('/api/buscados')}catch(e){g.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}if(ui.vista!=='buscados')return}
  const q=sinAcento($('search').value.trim());const mias=new Set(window.esMiaBus?bus.filter(esMiaBus):[]);
- const idx=bus.map((b,i)=>[b,i]).filter(([b])=>!mias.has(b)).filter(([b])=>!q||sinAcento(b.t+' '+(b.a||[]).join(' ')).includes(q));
+ const kDup=b=>{const t=sinAcento(String(b.t).replace(/\([^)]*\)/g,'')).replace(/[^a-z0-9 ]+/g,' ').trim().split(/\s+/).filter(Boolean);return t.join('')};
+ const pesoB=b=>(/espa/i.test(b.l||'')?0:2)+(b.img?0:1);const unicos=new Map();bus.forEach((b,i)=>{if(mias.has(b))return;const k=kDup(b)||'#'+i;const o=unicos.get(k);if(!o||pesoB(b)<pesoB(o[0]))unicos.set(k,[b,i])});
+ const idx=[...unicos.values()].filter(([b])=>!q||sinAcento(b.t+' '+(b.a||[]).join(' ')).includes(q));
  const PRN={pronto:'1 · En mi lista de prioridad',no:'3 · No me interesa'};
  const clave=b=>busVer==='prio'?(PRN[window.prioDe?prioDe(b.t):'']||'2 · Resto'):busVer==='genero'?(b.gen||'Sin género'):busVer==='autor'?((b.a||[])[0]||'Autor pendiente'):(sinAcento(b.t).match(/[a-z0-9]/)||['#'])[0].toUpperCase();
  const m=new Map();idx.forEach(x=>{const k=clave(x[0]);(m.get(k)||m.set(k,[]).get(k)).push(x)});
@@ -48,7 +52,8 @@ const dia=s=>new Date(s+'T12:00:00');
 const fechaCorta=x=>{if(!x.iso)return x.fecha||'';const d=dia(x.iso);return /^\D*\d{1,2}\s/.test(String(x.fecha||'').replace(/^[^,]*,\s*/,''))?d.getDate()+' '+MESN[d.getMonth()].slice(0,3):MESN[d.getMonth()]};
 const numDe=x=>x.num||((String(x.titulo).match(/n[º°]\s*(\d+)/)||[])[1]||'');
 const tituloSin=t=>String(t||'').replace(/\s*n[º°]\s*\d+.*$/,'').trim()||t;
-const cartaW=(x,conMotivo)=>`<div class="ncard wkcard"><a href="${esc(x.url)}" target="_blank" rel="noopener" class="cover">${x.img?`<img loading="lazy" src="${esc(x.img)}" alt="" onerror="this.remove()">`:''}<div class="placeholder ph">${esc(x.titulo)}</div>${numDe(x)?`<span class="wk-num">#${esc(numDe(x))}</span>`:''}</a><h3 title="${esc(x.titulo)}">${esc(tituloSin(x.titulo))}</h3><p>${esc(fechaCorta(x))}${x.editorial?' · '+esc(x.editorial):''}</p>${conMotivo&&x.motivo?`<p class="wk-mot wk-${esc(x.motivo.split(' ')[0].toLowerCase())}">${esc(x.motivo)}</p>`:''}</div>`;
+const CENSURA=/08a02c268a6d6b2304c152aa0acdc7a0|imagen_censurada/i;
+const cartaW=(x,conMotivo)=>`<div class="ncard wkcard"><a href="${esc(x.url)}" target="_blank" rel="noopener" class="cover">${x.img&&!CENSURA.test(x.img)?`<img loading="lazy" src="${esc(x.img)}" alt="" onerror="this.remove()">`:''}<div class="placeholder ph">${esc(x.titulo)}</div>${numDe(x)?`<span class="wk-num">#${esc(numDe(x))}</span>`:''}</a><h3 title="${esc(x.titulo)}">${esc(tituloSin(x.titulo))}</h3><p>${esc(fechaCorta(x))}${x.editorial?' · '+esc(x.editorial):''}</p>${conMotivo&&x.motivo?`<p class="wk-mot wk-${esc(x.motivo.split(' ')[0].toLowerCase())}">${esc(x.motivo)}</p>`:''}</div>`;
 const sinDatos=g=>{g.className='grouped';g.innerHTML='<div class="empty">Aún no hay salidas cargadas: aparecerán tras la próxima comprobación de novedades.</div>'};
 pintaNovedades=function(){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';return}if(!nov.salidas)return sinDatos(g);
  const hoy=isoHoy(),ym=hoy.slice(0,7),q=sinAcento($('search').value.trim());

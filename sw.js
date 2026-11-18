@@ -1,5 +1,5 @@
 /* Guarda la app para que abra al momento y sin conexión, guarda las portadas y muestra los avisos. Los datos van aparte (GitHub). */
-const V='wf-27',IMG='wf-portadas';
+const V='wf-28',IMG='wf-portadas';
 const SHELL=['./','index.html','app.js','nube.js','isbn.js','style.css','fisico.css','movil.css','prioridades.css','prioridades.js','vistas.js','manifest.webmanifest','icono-192.png','icono-512.png','icono-180.png','woody-library.png'];
 const FOTOS=/^https:\/\/(i\d?\.whakoom\.com|static\.listadomanga\.com|www\.listadomanga\.es|static\.cegal\.es|books\.google\.[a-z.]+|covers\.openlibrary\.org)\//;
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)));self.skipWaiting()});
