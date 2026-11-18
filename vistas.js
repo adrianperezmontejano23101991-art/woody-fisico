@@ -2,8 +2,8 @@
 /* Navegación y listas. Cinco secciones (Tengo, Buscados, Listas, Novedades, Más) y listas que se pintan a trozos
    según se baja, para que ninguna pestaña cargue mil portadas de golpe. */
 (()=>{
-const GRUPO={obras:'obras',puntuaciones:'obras',autores:'obras',buscados:'buscados',prioridades:'prioridades',novedades:'novedades',todasnov:'novedades',proximos:'novedades',descubrir:'novedades',mas:'mas',extras:'mas',revisar:'mas'};
-const SUB={obras:[['obras','Obras'],['puntuaciones','Por nota'],['autores','Autores']],novedades:[['novedades','Mis novedades'],['todasnov','Todas las novedades'],['proximos','Próximos'],['descubrir','Descubrir']]};
+const GRUPO={obras:'obras',puntuaciones:'obras',autores:'obras',buscados:'buscados',prioridades:'prioridades',novedades:'novedades',todasnov:'novedades',proximos:'novedades',descubrir:'novedades',recomendaciones:'novedades',mas:'mas',extras:'mas',revisar:'mas'};
+const SUB={obras:[['obras','Obras'],['puntuaciones','Por nota'],['autores','Autores']],novedades:[['novedades','Mis novedades'],['todasnov','Todas las novedades'],['proximos','Próximos'],['recomendaciones','Recomendaciones']]};
 const LOTE=60;let cola=null;
 
 // la portada «imagen censurada» de Listado Manga no se enseña en ningún sitio
@@ -61,6 +61,14 @@ pintaNovedades=function(){const g=$('grid');if(!nov){g.className='grouped';g.inn
  const gr=new Map();l.forEach(x=>{const m=x.iso.slice(0,7);const t=m===ym?'Este mes':MESN[+m.slice(5)-1].replace(/^./,c=>c.toUpperCase())+(m.slice(0,4)!==hoy.slice(0,4)?' '+m.slice(0,4):'');(gr.get(t)||gr.set(t,[]).get(t)).push(x)});
  const cab=`<div class="nov-cab"><div><b>Mis novedades</b><small>Tus colecciones, lo que sigue en otra editorial, obras nuevas de tus autores y terror${nov.ultima?' · comprobado '+esc(nov.ultima):''}</small></div></div>`;
  trozos(g,cab,[...gr].map(([t,items])=>({t,items})),x=>cartaW(x,true),'grid ngrid wkgrid')};
+// ---------- Recomendaciones: lo que te puede gustar del manga editado en España (terror y cortas emotivas)
+let recom=null;
+window.pintaRecom=async function(){const g=$('grid');g.className='grouped';if(!recom){g.innerHTML='<div class="empty">Cargando…</div>';try{recom=await api('/api/recomendaciones')}catch(e){g.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}if(ui.vista!=='recomendaciones')return}
+ if(!recom.terror){g.innerHTML='<div class="empty">Aún no hay recomendaciones.</div>';return}
+ const q=sinAcento($('search').value.trim());const fuera=x=>window.esMia&&esMia({titulo:x.t,url:x.url});const pasa=x=>!fuera(x)&&(!q||sinAcento(x.t+' '+(x.a||[]).join(' ')+' '+(x.ed||'')).includes(q));
+ const carta=x=>`<div class="ncard wkcard"><a href="${esc(x.url)}" target="_blank" rel="noopener" class="cover">${x.img?`<img loading="lazy" src="${esc(x.img)}" alt="" onerror="this.remove()">`:''}<div class="placeholder ph">${esc(x.t)}</div>${x.score?`<span class="wk-num">★ ${(x.score/10).toFixed(1).replace('.',',')}</span>`:''}</a><h3 title="${esc(x.t)}">${esc(x.t)}</h3><p title="${esc((x.a||[]).join(', '))}">${esc([x.n?x.n+(x.n==1?' tomo':' tomos'):'',x.ed].filter(Boolean).join(' · '))}</p>${x.por?`<p class="wk-mot">${esc(x.por)}</p>`:''}</div>`;
+ const cab=`<div class="nov-cab"><div><b>Recomendaciones</b><small>Manga editado en España que no tienes, ni buscas, ni has leído · nota de AniList${recom.fecha?' · '+esc(recom.fecha):''}</small></div></div>`;
+ trozos(g,cab,[{t:'Terror',s:'',items:recom.terror.filter(pasa)},{t:'Historias cortas emotivas',s:'Hasta 10 tomos · drama, slice of life',items:recom.cortas.filter(pasa)}].map(G=>({...G,s:G.items.length+(G.s?' · '+G.s:'')})),carta,'grid ngrid wkgrid')};
 window.pintaTodasNov=function(){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';return}if(!nov.salidas)return sinDatos(g);
  const hoy=dia(isoHoy()),lunes=new Date(hoy);lunes.setDate(hoy.getDate()-((hoy.getDay()+6)%7));const q=sinAcento($('search').value.trim());
  const desde=lunes.toISOString().slice(0,10);const l=nov.salidas.filter(x=>x.iso&&x.iso>=desde&&(!q||sinAcento(x.titulo+' '+(x.editorial||'')+' '+(x.autores||[]).join(' ')).includes(q)));
@@ -111,7 +119,7 @@ sub.onclick=e=>{const b=e.target.closest('[data-sub]');if(!b)return;ui.vista=b.d
 let antes='';
 {const _render=render;render=function(){cola=null;document.querySelectorAll('.trozos-fin').forEach(x=>x.remove());const v=ui.vista,gr=GRUPO[v]||v;
   corta=v==='obras'&&ui.modo==='cuadro';resto=null;
-  if(v==='mas'){document.body.dataset.vista='mas';pintaMas()}else if(v==='todasnov'||v==='proximos'){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';cargaNov()}else if(v==='todasnov')pintaTodasNov();else window.pintaProximos()}else _render();
+  if(v==='mas'){document.body.dataset.vista='mas';pintaMas()}else if(v==='recomendaciones'){pintaRecom()}else if(v==='todasnov'||v==='proximos'){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';cargaNov()}else if(v==='todasnov')pintaTodasNov();else window.pintaProximos()}else _render();
   if(corta&&resto&&resto.length>LOTE){const l=resto,g=$('grid');$('contador').textContent=l.length+(l.length===1?' obra · ':' obras · ')+l.reduce((n,o)=>n+o._tengo,0)+' tomos en casa';
    const fin=document.createElement('div');fin.className='trozos-fin';g.after(fin);cola={grupos:[{t:null,items:l}],carta:tarjeta,cls:'grid',fin,gi:0,ii:LOTE,grid:g};llena()}
   corta=false;
