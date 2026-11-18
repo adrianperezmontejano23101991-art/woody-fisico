@@ -109,7 +109,7 @@ document.addEventListener('click',e=>{const a=e.target.closest?.('.ncard a.cover
 
 // ---------- para otras vistas
 const baseT=t=>ntk(String(t||'').replace(/\s*[-–:]\s*(edici[oó]n|nueva edici|kanzenban|integral|deluxe|maximum|ultimate|perfect|master edition).*$/i,'').replace(/\((?:[^)]*(edici|integral|kanzenban|deluxe|maximum|ultimate|perfect|tapa dura|master|nueva|complete|castellano|català|catala|[A-Z][a-z]+ Ediciones?|Ivrea|Norma|Planeta|Panini|Glénat|EDT|ECC|Milky Way|Arechi|Distrito|Moztros|Kibook|Devir)[^)]*)\)/gi,''));
-window.esMia=function(c){const lmId=+((String(c.url||'').match(/coleccion\.php\?id=(\d+)/)||[])[1]||c.id||0);
+window.esMia=function(c){const lmId=+((String(c.url||'').match(/coleccion\.php\?id=(\d+)/)||[])[1]||c.id||0);if(lmId&&window.recEstado&&recEstado(lmId))return true;
  if(lmId&&obras.some(o=>o.tiene&&((o.lm_cols||[]).includes(lmId)||o.lm_id===lmId)))return true;
  const ix=indiceObras(),t=limpiaT(c.titulo),o=ix.get(ntk(t))||ix.get(baseT(c.titulo))||ix.get(baseT(t));return !!(o&&o.tiene)};
 window.esMiaBus=function(b){const ix=indiceObras(),t=limpiaT(b.t),o=ix.get(ntk(t))||ix.get(baseT(b.t));if(!o||!o.tiene)return false;
@@ -151,6 +151,7 @@ function pintaCalendario(g,l,modo){const cabecera=modo==='calendario'?x=>`<div c
  const hoy=ym+'-'+String(ahora.getDate()).padStart(2,'0');const porLm=new Map();for(const it of l)if(it.lm&&!porLm.has(it.lm.id))porLm.set(it.lm.id,it);
  const sal=[],visto=new Set();const mete=(x)=>{const k=x.col+'|'+(x.num||x.t);if(visto.has(k))return;visto.add(k);sal.push(x)};
  const C=nov?.cartas||{};const deCarta=(c,ex)=>{const col=+((c.url||'').match(/id=(\d+)/)||[])[1]||0,num=(c.titulo.match(/nº\s*(\d+)/)||[])[1]||'';const iso=c.iso||'';if(!iso||(iso.length>7?iso<hoy:iso<ym))return;
+   const est=window.recEstado?.(col);if(est==='tengo'||est==='no')return;if(est==='busco'&&ex!=='Tu colección')ex='Buscado';
    const it=porLm.get(col);if(it?.p==='no')return;if(num&&it?.o_?.tomos.some(t=>t.tengo&&String(t.num)===num))return;
    if(ptipo!=='todo'&&(it?it.tipo!==ptipo:!(ptipo==='terror'&&ex==='Terror')))return;
    mete({col,num,m:iso.slice(0,7),t:c.titulo.replace(/\s*\((de \d+[^)]*)\)\s*$/,''),img:c.img||it?.img||'',url:c.url,ex,it})};
