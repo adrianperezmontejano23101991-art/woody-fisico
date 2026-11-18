@@ -73,7 +73,11 @@ function pintaMas(){const g=$('grid');g.className='grouped';const rev=obras.filt
 const barra=document.createElement('div');barra.id='barraCol';barra.hidden=true;
 async function pintaBarra(){if(!bus)try{bus=await api('/api/buscados')}catch{return}
  const t=obras.filter(o=>o.tiene).length,f=bus.filter(b=>!(window.esMiaBus&&esMiaBus(b))).length,tot=t+f,pc=tot?Math.round(t*100/tot):0;
- barra.innerHTML=`<div class="bc-txt"><span>Tienes <b>${t}</b> títulos</span><span>Te faltan <b>${f}</b></span></div><div class="bc-barra" title="${pc} %"><i style="width:${pc}%"></i><em>${pc} %</em></div>`}
+ const tt=obras.filter(o=>o.tiene).reduce((a,o)=>a+(o._tengo||0),0);
+ const ft=bus.filter(b=>!(window.esMiaBus&&esMiaBus(b))).reduce((a,b)=>a+(parseInt(b.n)||1),0)+((typeof nov!=="undefined"&&nov?.seguidas)?Object.values(nov.seguidas).reduce((a,s)=>a+(s.cols||[]).reduce((x,c)=>x+(c.faltan||[]).length,0),0):0);
+ const tot2=tt+ft,pc2=tot2?Math.round(tt*100/tot2):0;
+ barra.innerHTML=`<div class="bc-txt"><span>Tienes <b>${t}</b> títulos</span><span>Te faltan <b>${f}</b></span></div><div class="bc-barra" title="${pc} %"><i style="width:${pc}%"></i><em>${pc} %</em></div>`
+  +`<div class="bc-txt bc-tomos"><span>Tienes <b>${tt}</b> tomos</span><span>Te faltan <b>${ft}</b></span></div><div class="bc-barra" title="${pc2} %"><i style="width:${pc2}%"></i><em>${pc2} %</em></div>`}
 // ---------- pintar
 const sub=document.createElement('div');sub.id='subnav';sub.className='seg';sub.hidden=true;$('estados').before(sub);sub.after(barra);
 sub.onclick=e=>{const b=e.target.closest('[data-sub]');if(!b)return;ui.vista=b.dataset.sub;ui.autor=null;if(ui.vista==='puntuaciones'){$('orden').value='nota';ui.ordenCol=null}render()};

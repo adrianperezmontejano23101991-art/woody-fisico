@@ -93,6 +93,7 @@ body[data-vista=mas] .toolbar,body[data-vista=mas] #estados{display:none}
 #barraCol{margin:0 0 12px}
 #barraCol[hidden]{display:none}
 .bc-txt{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px}
+.bc-tomos{margin-top:8px}
 .bc-txt b{color:var(--text,#eee);font-size:15px}
 .bc-barra{position:relative;height:18px;border-radius:9px;background:#3a2a2a;overflow:hidden;border:1px solid var(--line)}
 .bc-barra i{display:block;height:100%;background:#7fc96b}
