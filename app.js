@@ -35,6 +35,15 @@ function opciones(actual,vacio){const l=[...NOTAS];if(actual&&!l.includes(actual
 function opcionesAnime(actual){const l=['NV','-',...NOTAS];if(actual&&!l.includes(actual))l.unshift(actual);return `<option value="">—</option>`+l.map(n=>`<option ${n===actual?'selected':''} value="${esc(n)}">${n==='NV'?'NV (no vista)':n==='-'?'No aplica':esc(n)}</option>`).join('')}
 function opcionesCat(actual){const otras=[...new Set(obras.map(o=>o.estante))].filter(e=>e&&!CATEGORIAS.includes(e)).sort(coll.compare);const l=[...CATEGORIAS,...otras];if(actual&&!l.includes(actual))l.push(actual);return l.map(c=>`<option ${c===actual?'selected':''}>${esc(c)}</option>`).join('')}
 async function guardar(o,d){const n=await api('/api/obra/'+encodeURIComponent(o.id),d);Object.assign(o,n);deriva(o);pintaContadores();return o}
+// cambios de la ficha: se acumulan y se mandan juntos con «Guardar cambios» (o al cerrar la ficha)
+let borrador=null;
+async function guardaBorrador(){const b=borrador;if(!b||!b.n)return;borrador=null;const o=obras.find(x=>x.id===b.id)||sel;
+ const si=Object.keys(b.tomos).filter(k=>b.tomos[k]),no=Object.keys(b.tomos).filter(k=>!b.tomos[k]);
+ if(si.length)await api(`/api/obra/${encodeURIComponent(b.id)}/tomos`,{ids:si,leido:true});
+ if(no.length)await api(`/api/obra/${encodeURIComponent(b.id)}/tomos`,{ids:no,leido:false});
+ if(Object.keys(b.campos).length){const n=await api('/api/obra/'+encodeURIComponent(b.id),b.campos);if(o)Object.assign(o,n)}
+ const ts=o?o.tomos:[];ts.forEach(t=>{if(t.id in b.tomos)t.leido=b.tomos[t.id]?(t.leido||new Date().toISOString().slice(0,10)):''});if(o){deriva(o);pintaContadores()}toast('Cambios guardados')}
+window.hayBorrador=()=>!!(borrador&&borrador.n);
 const claseNota=o=>o._nota>10?'mh':o._nota>=9.5?'alta':o._nota!==null&&o._nota<7?'baja':'';
 // --- pintado
 function tarjeta(o){const c=portada(o),[e,cl]=estadoTxt(o);const au=(o.autores||[]).join(', ');return `<div class="card" role="button" tabindex="0" data-obra="${esc(o.id)}"><div class="cover">${c?`<img loading="lazy" src="${esc(c)}" alt="">`:`<div class="placeholder">${esc(o.titulo)}</div>`}${o.valoracion?`<span class="rating-badge ${claseNota(o)}">★ ${esc(o.valoracion)}</span>`:''}<span class="estado-badge ${cl}">${esc(e)}</span></div><h3 title="${esc(o.titulo)}">${esc(o.titulo)}</h3><p title="${esc(au)}">${esc(au||'Autor pendiente')}</p><p class="meta">${o._total?o._total+(o._total===1?' tomo':' tomos'):'Sin tomos'}${o._eds[0]?' · '+esc(o._eds[0]):''}${o.wk_media?' · <span class="wk-nota" title="Nota media en Whakoom">W ★ '+wkf(o.wk_media)+'</span>':''}</p></div>`}
@@ -107,7 +116,7 @@ function tomoHTML(o,t){const elegido=o.portada_tomo===t.id;const nom=t.titulo&&!
 function pintaFicha(){const o=sel,c=portada(o),[e]=estadoTxt(o);const eds=ediciones(o);const url=o.tomos.find(t=>t.url&&/whakoom/.test(t.url))?.url;
  $('detailContent').innerHTML=`<div class="detail-layout"><div class="detail-side">${c?`<img class="detail-cover" id="fichaCover" src="${esc(c)}" alt="Portada">`:`<div class="cover"><div class="placeholder">${esc(o.titulo)}</div></div>`}${o.fuente_externa?`<small>Portada: ${esc(o.fuente_externa)}</small>`:''}${o.descripcion?`<p class="description">${esc(o.descripcion)}</p>`:''}</div><div><span class="eyebrow">FICHA · ${esc(o.estante.toUpperCase())}</span><h2>${esc(o.titulo)}</h2><div>${(o.autores||[]).map(a=>`<a href="#" data-a="${esc(a)}">${esc(a)}</a>`).join(' · ')||'<small>Autor pendiente</small>'}</div>
  <div class="pills"><span class="pill">${esc(e)}</span><span class="pill">${o._total} ${o._total===1?'tomo':'tomos'}</span>${o._leidos?`<span class="pill">${o._leidos} leídos</span>`:''}${o.wk_media?`<span class="pill" title="Nota media de los lectores de Whakoom">Whakoom ★ ${wkf(o.wk_media)} · ${o.wk_votos} ${o.wk_votos===1?'voto':'votos'}</span>`:''}${o.wk_mia?`<span class="pill" title="Tu nota en Whakoom">Tu nota en Whakoom ★ ${wkf(o.wk_mia)}</span>`:''}${o._idiomas.map(i=>`<span class="pill">${esc(i)}</span>`).join('')}${(o.alias||[]).slice(0,3).map(a=>`<span class="pill pill-muted">${esc(a)}</span>`).join('')}</div>
- <div class="notas"><label>Manga<select id="fNota">${opciones(o.valoracion,'Sin nota')}</select></label><label>Anime<select id="fAnime">${opcionesAnime(o.anime)}</select></label><label class="seg-check"><span>Avisos</span><span><input type="checkbox" id="fSeguir" ${o.seguir?'checked':''}> Seguir novedades</span></label><label>Categoría<select id="fCat" class="cat-sel">${opcionesCat(o.estante)}</select></label>${o._total?`<button id="todosLeidos">${o._leidos<o._total?'Marcar todo leído':'Marcar todo sin leer'}</button>`:`<button id="manualLeido">${o.leido?'Leída':'Marcar leída'}</button>`}<span class="guardado" id="guardado">Guardado</span></div>
+ <div class="notas"><label>Manga<select id="fNota">${opciones(o.valoracion,'Sin nota')}</select></label><label>Anime<select id="fAnime">${opcionesAnime(o.anime)}</select></label><label class="seg-check"><span>Avisos</span><span><input type="checkbox" id="fSeguir" ${o.seguir?'checked':''}> Seguir novedades</span></label><label>Categoría<select id="fCat" class="cat-sel">${opcionesCat(o.estante)}</select></label>${o._total?`<button id="todosLeidos">${o._leidos<o._total?'Marcar todo leído':'Marcar todo sin leer'}</button>`:`<button id="manualLeido">${o.leido?'Leída':'Marcar leída'}</button>`}<button id="fGuardar" class="primary f-guardar" ${borrador&&borrador.id===o.id&&borrador.n?'':'disabled'}>${borrador&&borrador.id===o.id&&borrador.n?'Guardar cambios':'Sin cambios'}</button><span class="guardado" id="guardado">Guardado</span></div>
  <label class="eyebrow" for="comentario">MI COMENTARIO</label><textarea id="comentario" placeholder="Qué te ha parecido…">${esc(o.comentario)}</textarea>${o.revisar?.length&&!o.revisado?`<div class="notice">${o.revisar.map(esc).join('<br>')}<br><button id="okRev">Marcar como revisado</button></div>`:''}
  <div class="links">${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Whakoom ↗</a>`:''}${o.lm_url?`<a href="${esc(o.lm_url)}" target="_blank" rel="noopener">${/hollow/.test(o.lm_url)?'Hollow Press':/afterlight/.test(o.lm_url)?'Afterlight Comics':'Listado Manga'} ↗</a>`:`<a href="https://www.listadomanga.es/buscador.php" target="_blank" rel="noopener">Buscar en Listado Manga ↗</a>`}</div>
  ${eds.map(l=>`<div class="ed-head"><strong>${esc(l[0].serie)}</strong><small>${esc(l[0].editorial)}${l[0].edicion?' · '+esc(l[0].edicion):''}${l[0].idioma?' · '+esc(l[0].idioma):''} · ${l.length} ${l.length===1?'tomo':'tomos'}${l[0].tengo?'':' · no lo tienes'}</small></div><div class="tomos">${l.map(t=>tomoHTML(o,t)).join('')}</div>`).join('')||'<p>No hay tomos registrados: pega una portada abajo si quieres verla en la estantería.</p>'}
@@ -115,20 +124,24 @@ function pintaFicha(){const o=sel,c=portada(o),[e]=estadoTxt(o);const eds=edicio
  pintaRelaciones(o.id);
  const ok=()=>{const g=$('guardado');g.classList.add('ver');setTimeout(()=>g.classList.remove('ver'),1200)};
  const seguro=f=>async(...a)=>{try{await f(...a)}catch(e){toast(e.message)}};
- $('fNota').onchange=seguro(async()=>{await guardar(o,{valoracion:$('fNota').value});ok();pintaCabecera()});
- $('fCat').onchange=seguro(async()=>{await guardar(o,{estante:$('fCat').value});filtros();ok();$('detailContent').querySelector('.eyebrow').textContent='FICHA · '+o.estante.toUpperCase()});
- $('fSeguir').onchange=seguro(async()=>{await guardar(o,{seguir:$('fSeguir').checked});ok();cargaNov()});
- $('fAnime').onchange=seguro(async()=>{await guardar(o,{anime:$('fAnime').value});ok()});
- $('comentario').onblur=seguro(async()=>{if($('comentario').value!==o.comentario){await guardar(o,{comentario:$('comentario').value});ok()}});
- if($('todosLeidos'))$('todosLeidos').onclick=seguro(async()=>{Object.assign(o,await api(`/api/obra/${encodeURIComponent(o.id)}/tomos`,{leido:o._leidos<o._total}));deriva(o);pintaFicha()});
- if($('manualLeido'))$('manualLeido').onclick=seguro(async()=>{await guardar(o,{leido_manual:!o.leido_manual});pintaFicha()});
+ const cambia=(d)=>{if(!borrador||borrador.id!==o.id)borrador={id:o.id,campos:{},tomos:{},n:0};Object.assign(borrador.campos,d);for(const [k,v] of Object.entries(d))o[k]=v;borrador.n++;deriva(o);marcaBorrador()};
+ const marcaBorrador=()=>{const b=$('fGuardar');if(b){b.disabled=false;b.textContent='Guardar cambios'}};
+ $('fNota').onchange=()=>{cambia({valoracion:$('fNota').value})};
+ $('fCat').onchange=()=>{cambia({estante:$('fCat').value});$('detailContent').querySelector('.eyebrow').textContent='FICHA · '+o.estante.toUpperCase()};
+ $('fSeguir').onchange=()=>{cambia({seguir:$('fSeguir').checked})};
+ $('fAnime').onchange=()=>{cambia({anime:$('fAnime').value})};
+ $('comentario').oninput=()=>{cambia({comentario:$('comentario').value})};
+ const marcaTomos=(ts,leido)=>{if(!borrador||borrador.id!==o.id)borrador={id:o.id,campos:{},tomos:{},n:0};const f=leido?new Date().toISOString().slice(0,10):'';ts.forEach(t=>{t.leido=f;borrador.tomos[t.id]=leido});borrador.n++;deriva(o);pintaFicha()};
+ if($('todosLeidos'))$('todosLeidos').onclick=()=>marcaTomos(o.tomos,o._leidos<o._total);
+ $('fGuardar').onclick=seguro(async()=>{await guardaBorrador();ok();filtros();pintaCabecera();pintaFicha();cargaNov()});
+ if($('manualLeido'))$('manualLeido').onclick=()=>{cambia({leido_manual:!o.leido_manual});pintaFicha()};
  if($('okRev'))$('okRev').onclick=seguro(async()=>{await guardar(o,{revisado:true});pintaFicha()});
  if($('fichaCover'))$('fichaCover').onclick=()=>zoom($('fichaCover').src);
  $('eGuardar').onclick=seguro(async()=>{const u=$('ePortada').value.trim();await guardar(o,{titulo:$('eTitulo').value.trim()||o.titulo,autores:$('eAutores').value.split(',').map(s=>s.trim()).filter(Boolean)});if(u){Object.assign(o,await api(`/api/obra/${encodeURIComponent(o.id)}/portada`,{url:u}));deriva(o)}filtros();pintaFicha();toast('Ficha guardada')});
  if($('eBorrar'))$('eBorrar').onclick=seguro(async()=>{if(!confirm('¿Borrar esta obra?'))return;await api(`/api/obra/${encodeURIComponent(o.id)}/borrar`,{});obras=obras.filter(x=>x!==o);$('detail').close();filtros();render()});
  $('detailContent').querySelectorAll('[data-a]').forEach(a=>a.onclick=ev=>{ev.preventDefault();ui.autor=a.dataset.a;ui.vista='autores';$('detail').close();render()});
  $('detailContent').querySelectorAll('[data-zoom]').forEach(b=>b.onclick=()=>b.dataset.zoom&&zoom(b.dataset.zoom,b.dataset.local));
- $('detailContent').querySelectorAll('[data-leer]').forEach(b=>b.onclick=seguro(async()=>{const t=o.tomos.find(x=>x.id===b.dataset.leer);Object.assign(o,await api(`/api/obra/${encodeURIComponent(o.id)}/tomos`,{ids:[t.id],leido:!t.leido}));deriva(o);pintaFicha()}));
+ $('detailContent').querySelectorAll('[data-leer]').forEach(b=>b.onclick=()=>{const t=o.tomos.find(x=>x.id===b.dataset.leer);marcaTomos([t],!t.leido)});
  $('detailContent').querySelectorAll('[data-usar]').forEach(b=>b.onclick=seguro(async()=>{await guardar(o,{portada_tomo:o.portada_tomo===b.dataset.usar?null:b.dataset.usar});pintaFicha();toast('Portada actualizada')}))}
 function htmlAutor(a){const obras=a.obras||[];const n=e=>obras.filter(o=>o.estado===e).length;
  const pill=o=>{const c={mia:'rel-mia',hecho:'rel-hecho',porhacer:'rel-porhacer'}[o.estado]||'';const tag=o.tag?`<em>${esc(o.tag)}</em>`:'';const d=`data-t="${esc(o.t)}" data-man="${o.manual?1:''}"`;const tx=(o.estado==='mia'?'✓ ':'')+esc(o.t);return o.id?`<button class="pill rel-p ${c}" ${d} data-ir="${esc(o.id)}">${tx}</button>`:o.u?`<a class="pill ${c}" ${d} href="${esc(o.u)}" target="_blank" rel="noopener">${tx}${tag}</a>`:`<span class="pill ${c}" ${d}>${tx}${tag}</span>`};
@@ -150,7 +163,9 @@ document.querySelectorAll('.views .nav').forEach(b=>b.onclick=()=>{ui.vista=b.da
 document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ui.modo=b.dataset.modo;recordar();render()});
 ['editorial','nota','idioma'].forEach(k=>$(k).onchange=render);$('estante').onchange=()=>{if($('estante').value&&obras.some(o=>o.estante===$('estante').value&&o.orden!=null)){$('orden').value='estanteria';ui.ordenCol=null}render()};$('orden').onchange=()=>{ui.ordenCol=null;recordar();render()};
 let tb;$('search').oninput=()=>{clearTimeout(tb);tb=setTimeout(render,150)};
-$('volver').onclick=()=>{ui.autor=null;render()};$('closeDetail').onclick=()=>$('detail').close();$('detail').addEventListener('close',()=>{const z=$('zoom');document.body.append(z);z.hidden=true;render()});
+$('volver').onclick=()=>{ui.autor=null;render()};$('closeDetail').onclick=()=>$('detail').close();$('detail').addEventListener('close',async()=>{const z=$('zoom');document.body.append(z);z.hidden=true;
+ if(window.hayBorrador()){if(confirm('Tienes cambios sin guardar en la ficha. ¿Guardarlos?')){try{await guardaBorrador()}catch(e){toast(e.message)}}else{borrador=null;window.__recargaPend=true}}
+ if(window.__recargaPend&&typeof cargar==='function'){window.__recargaPend=false;try{await cargar(true)}catch(e){}}render()});
 $('detail').addEventListener('click',ev=>{if(ev.target===$('detail'))$('detail').close()});
 $('infoBtn').onclick=()=>{const p=$('infoPanel');p.hidden=!p.hidden;$('infoBtn').setAttribute('aria-expanded',!p.hidden)};
 $('bajar').onclick=async()=>{await api('/api/portadas',{});toast('Buscando portadas…');estado()};
