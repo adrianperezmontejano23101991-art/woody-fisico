@@ -98,7 +98,8 @@ async function pintaBarra(){if(!bus)try{bus=await api('/api/buscados')}catch{ret
  const ft=bus.filter(b=>!(window.esMiaBus&&esMiaBus(b))).reduce((a,b)=>a+(parseInt(b.n)||1),0)+((typeof nov!=="undefined"&&nov?.seguidas)?Object.values(nov.seguidas).reduce((a,s)=>a+(s.cols||[]).reduce((x,c)=>x+(c.faltan||[]).length,0),0):0);
  const tot2=tt+ft,pc2=tot2?Math.round(tt*100/tot2):0;
  barra.innerHTML=`<div class="bc-txt"><span>Tienes <b>${t}</b> títulos</span><span>Te faltan <b>${f}</b></span></div><div class="bc-barra" title="${pc} %"><i style="width:${pc}%"></i><em>${pc} %</em></div>`
-  +`<div class="bc-txt bc-tomos"><span>Tienes <b>${tt}</b> tomos</span><span>Te faltan <b>${ft}</b></span></div><div class="bc-barra" title="${pc2} %"><i style="width:${pc2}%"></i><em>${pc2} %</em></div>`}
+  +`<details class="bc-tomos"${window.__tomosAbierto?' open':''}><summary>Tomos</summary><div class="bc-txt"><span>Tienes <b>${tt}</b> tomos</span><span>Te faltan <b>${ft}</b></span></div><div class="bc-barra" title="${pc2} %"><i style="width:${pc2}%"></i><em>${pc2} %</em></div></details>`;
+ barra.querySelector('.bc-tomos').ontoggle=e=>{window.__tomosAbierto=e.target.open}}
 // ---------- pintar
 const sub=document.createElement('div');sub.id='subnav';sub.className='seg';sub.hidden=true;$('estados').before(sub);sub.after(barra);
 sub.onclick=e=>{const b=e.target.closest('[data-sub]');if(!b)return;ui.vista=b.dataset.sub;ui.autor=null;if(ui.vista==='puntuaciones'){$('orden').value='nota';ui.ordenCol=null}render()};
