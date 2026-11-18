@@ -2,8 +2,8 @@
 /* Navegación y listas. Cinco secciones (Tengo, Buscados, Listas, Novedades, Más) y listas que se pintan a trozos
    según se baja, para que ninguna pestaña cargue mil portadas de golpe. */
 (()=>{
-const GRUPO={obras:'obras',puntuaciones:'obras',autores:'obras',buscados:'buscados',prioridades:'prioridades',novedades:'novedades',descubrir:'novedades',mas:'mas',extras:'mas',revisar:'mas'};
-const SUB={obras:[['obras','Obras'],['puntuaciones','Por nota'],['autores','Autores']],novedades:[['novedades','Próximos'],['descubrir','Descubrir']]};
+const GRUPO={obras:'obras',puntuaciones:'obras',autores:'obras',buscados:'buscados',prioridades:'prioridades',novedades:'novedades',todasnov:'novedades',proximos:'novedades',descubrir:'novedades',mas:'mas',extras:'mas',revisar:'mas'};
+const SUB={obras:[['obras','Obras'],['puntuaciones','Por nota'],['autores','Autores']],novedades:[['novedades','Mis novedades'],['todasnov','Todas las novedades'],['proximos','Próximos'],['descubrir','Descubrir']]};
 const LOTE=60;let cola=null;
 
 // ---------- pintar a trozos
@@ -41,8 +41,29 @@ pintaBuscados=async function(){const g=$('grid');if(!bus){g.className='grouped';
  trozos(g,cab,orden.map(([t,items])=>({t,items})),([b,i])=>`<div class="card" role="button" tabindex="0" data-bus="${i}"><div class="cover">${b.img?`<img loading="lazy" src="${esc(b.img)}" alt="" onerror="this.remove()">`:''}<div class="placeholder">${esc(b.t)}</div>${mias.has(b)?'<span class="estado-badge" style="background:#2a4a2a">Ya la tienes</span>':''}</div><h3>${esc(b.t)}</h3><p>${esc((b.a||[]).join(', ')||'Autor pendiente')}</p><p class="meta">${esc([b.n,b.p].filter(Boolean).join(' · '))}</p></div>`);
  g.querySelectorAll('[data-busver]').forEach(b=>b.onclick=async()=>{busVer=b.dataset.busver;if(busVer==='prio'&&window.cargaPrio)try{await cargaPrio()}catch{}pintaBuscados()})};
 
-// ---------- Novedades: lo próximo que te interesa
-pintaNovedades=function(){return window.pintaProximos()};
+// ---------- Novedades al estilo de Whakoom: portadas con su número, por meses (las tuyas) o por semanas (todo el manga)
+const MESN=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const isoHoy=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const dia=s=>new Date(s+'T12:00:00');
+const fechaCorta=x=>{if(!x.iso)return x.fecha||'';const d=dia(x.iso);return /^\D*\d{1,2}\s/.test(String(x.fecha||'').replace(/^[^,]*,\s*/,''))?d.getDate()+' '+MESN[d.getMonth()].slice(0,3):MESN[d.getMonth()]};
+const numDe=x=>x.num||((String(x.titulo).match(/n[º°]\s*(\d+)/)||[])[1]||'');
+const tituloSin=t=>String(t||'').replace(/\s*n[º°]\s*\d+.*$/,'').trim()||t;
+const cartaW=(x,conMotivo)=>`<div class="ncard wkcard"><a href="${esc(x.url)}" target="_blank" rel="noopener" class="cover">${x.img?`<img loading="lazy" src="${esc(x.img)}" alt="" onerror="this.remove()">`:''}<div class="placeholder ph">${esc(x.titulo)}</div>${numDe(x)?`<span class="wk-num">#${esc(numDe(x))}</span>`:''}</a><h3 title="${esc(x.titulo)}">${esc(tituloSin(x.titulo))}</h3><p>${esc(fechaCorta(x))}${x.editorial?' · '+esc(x.editorial):''}</p>${conMotivo&&x.motivo?`<p class="wk-mot wk-${esc(x.motivo.split(' ')[0].toLowerCase())}">${esc(x.motivo)}</p>`:''}</div>`;
+const sinDatos=g=>{g.className='grouped';g.innerHTML='<div class="empty">Aún no hay salidas cargadas: aparecerán tras la próxima comprobación de novedades.</div>'};
+pintaNovedades=function(){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';return}if(!nov.salidas)return sinDatos(g);
+ const hoy=isoHoy(),ym=hoy.slice(0,7),q=sinAcento($('search').value.trim());
+ const l=nov.salidas.filter(x=>x.motivo&&x.iso&&x.iso>=hoy.slice(0,8)+'01'&&(x.iso>=hoy||x.iso.slice(0,7)===ym)&&!(window.esMia&&x.iso<hoy&&esMia(x))&&(!q||sinAcento(x.titulo+' '+(x.editorial||'')+' '+(x.autores||[]).join(' ')).includes(q)));
+ const gr=new Map();l.forEach(x=>{const m=x.iso.slice(0,7);const t=m===ym?'Este mes':MESN[+m.slice(5)-1].replace(/^./,c=>c.toUpperCase())+(m.slice(0,4)!==hoy.slice(0,4)?' '+m.slice(0,4):'');(gr.get(t)||gr.set(t,[]).get(t)).push(x)});
+ const cab=`<div class="nov-cab"><div><b>Mis novedades</b><small>Tus colecciones, lo que sigue en otra editorial, obras nuevas de tus autores y terror${nov.ultima?' · comprobado '+esc(nov.ultima):''}</small></div></div>`;
+ trozos(g,cab,[...gr].map(([t,items])=>({t,items})),x=>cartaW(x,true),'grid ngrid wkgrid')};
+window.pintaTodasNov=function(){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';return}if(!nov.salidas)return sinDatos(g);
+ const hoy=dia(isoHoy()),lunes=new Date(hoy);lunes.setDate(hoy.getDate()-((hoy.getDay()+6)%7));const q=sinAcento($('search').value.trim());
+ const desde=lunes.toISOString().slice(0,10);const l=nov.salidas.filter(x=>x.iso&&x.iso>=desde&&(!q||sinAcento(x.titulo+' '+(x.editorial||'')+' '+(x.autores||[]).join(' ')).includes(q)));
+ const gr=new Map();l.forEach(x=>{const d=dia(x.iso),ini=new Date(d);ini.setDate(d.getDate()-((d.getDay()+6)%7));const fin=new Date(ini);fin.setDate(ini.getDate()+6);
+  const t=/^\D*\d{1,2}\s/.test(String(x.fecha||'').replace(/^[^,]*,\s*/,''))?`Novedades del ${ini.getDate()}${ini.getMonth()!==fin.getMonth()?' de '+MESN[ini.getMonth()]:''} al ${fin.getDate()} de ${MESN[fin.getMonth()]}`:`${MESN[d.getMonth()].replace(/^./,c=>c.toUpperCase())}, sin día fijo`;
+  (gr.get(t)||gr.set(t,[]).get(t)).push(x)});
+ const cab=`<div class="nov-cab"><div><b>Todas las novedades</b><small>Todo el manga que sale en España, semana a semana${nov.ultima?' · comprobado '+esc(nov.ultima):''}</small></div></div>`;
+ trozos(g,cab,[...gr].map(([t,items])=>({t,items})),x=>cartaW(x,true),'grid ngrid wkgrid')};
 
 // ---------- Extras: lo que hay en Woody Library, por autor
 let woody=null,exVer='autor';const _extras=pintaExtras;
@@ -84,7 +105,7 @@ sub.onclick=e=>{const b=e.target.closest('[data-sub]');if(!b)return;ui.vista=b.d
 let antes='';
 {const _render=render;render=function(){cola=null;document.querySelectorAll('.trozos-fin').forEach(x=>x.remove());const v=ui.vista,gr=GRUPO[v]||v;
   corta=v==='obras'&&ui.modo==='cuadro';resto=null;
-  if(v==='mas'){document.body.dataset.vista='mas';pintaMas()}else _render();
+  if(v==='mas'){document.body.dataset.vista='mas';pintaMas()}else if(v==='todasnov'||v==='proximos'){const g=$('grid');if(!nov){g.className='grouped';g.innerHTML='<div class="empty">Cargando…</div>';cargaNov()}else if(v==='todasnov')pintaTodasNov();else window.pintaProximos()}else _render();
   if(corta&&resto&&resto.length>LOTE){const l=resto,g=$('grid');$('contador').textContent=l.length+(l.length===1?' obra · ':' obras · ')+l.reduce((n,o)=>n+o._tengo,0)+' tomos en casa';
    const fin=document.createElement('div');fin.className='trozos-fin';g.after(fin);cola={grupos:[{t:null,items:l}],carta:tarjeta,cls:'grid',fin,gi:0,ii:LOTE,grid:g};llena()}
   corta=false;

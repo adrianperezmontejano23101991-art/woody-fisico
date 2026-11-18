@@ -100,3 +100,11 @@ body[data-vista=novedades] #estados,body[data-vista=colecciones] #estados,body[d
 .card .cover .rating-badge,.card .cover .estado-badge,.card .cover .badge{z-index:2}
 .pill.rel-mia{background:#5a3f94;border-color:#7d5fbd;color:#fff;font-weight:600}.pill.rel-hecho{background:#23579e;border-color:#3f7bd0;color:#fff}.pill.rel-porhacer{background:#9c2f2f;border-color:#c94f4f;color:#fff}.pill.rel-mia em,.pill.rel-hecho em,.pill.rel-porhacer em{color:#e4e4ee}.rel-ley{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .rel-ley small{align-self:center;color:var(--muted);font-size:11px}
+
+/* Novedades al estilo de Whakoom */
+.wkgrid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+.wkcard .cover{position:relative}
+.wk-num{position:absolute;right:6px;bottom:6px;z-index:2;background:#1d1b19e6;color:#fff;font:700 12px/1 system-ui;padding:4px 6px;border-radius:5px}
+.wkcard p{color:var(--muted)}
+.wk-mot{display:inline-block;margin-top:4px!important;padding:2px 7px;border-radius:9px;font-size:10.5px!important;background:#3a3530;color:#e8dcc8!important}
+.wk-tu{background:#2f4a2a}.wk-continúa{background:#2a3d4a}.wk-autor{background:#4a3f2a}.wk-terror{background:#4a2a2a}
